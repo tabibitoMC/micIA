@@ -25,6 +25,7 @@ var icon_name := "heart"
 var label_text := ""
 
 var _tile: Button
+var _disabled := false
 
 
 ## p_icon: un valor de Icon o directamente el nombre de un ícono de Lucide.
@@ -40,7 +41,7 @@ func _ready() -> void:
 	_tile = Button.new()
 	_tile.custom_minimum_size = Vector2(TILE_SIZE, TILE_SIZE)
 	_tile.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	_tile.icon = Icons.texture(icon_name, UIStyle.PINK_DEEP, ICON_SIZE * 2)
+	_tile.icon = Icons.texture(icon_name, UIStyle.PINK_DEEP, ICON_SIZE * 3)
 	_tile.expand_icon = true
 	_tile.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_tile.vertical_icon_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -60,6 +61,7 @@ func _ready() -> void:
 	pressed_style.shadow_size = 2
 	_tile.add_theme_stylebox_override("pressed", pressed_style)
 	_tile.pressed.connect(func(): pressed.emit())
+	_tile.disabled = _disabled
 	add_child(_tile)
 
 	var label := Label.new()
@@ -81,5 +83,7 @@ func pulse() -> void:
 
 
 func set_disabled(disabled: bool) -> void:
-	_tile.disabled = disabled
+	_disabled = disabled
+	if _tile:
+		_tile.disabled = disabled
 	modulate.a = 0.5 if disabled else 1.0

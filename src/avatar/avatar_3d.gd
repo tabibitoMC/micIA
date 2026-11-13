@@ -502,7 +502,10 @@ func _reset_action_params() -> void:
 
 func _build_viewport() -> void:
 	var container := SubViewportContainer.new()
+	# Se renderiza a la resolución real de la pantalla (no la de diseño), así
+	# se ve nítido en tablets y pantallas grandes. Ver _update_render_scale().
 	container.stretch = true
+	resized.connect(_update_render_scale)
 	container.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	container.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	var grading := Shader.new()
@@ -516,7 +519,7 @@ func _build_viewport() -> void:
 	_viewport = SubViewport.new()
 	_viewport.transparent_bg = true
 	_viewport.own_world_3d = true
-	_viewport.msaa_3d = Viewport.MSAA_2X
+	_viewport.msaa_3d = Viewport.MSAA_4X
 	container.add_child(_viewport)
 
 	_camera = Camera3D.new()
@@ -556,6 +559,18 @@ func _build_viewport() -> void:
 	var world_env := WorldEnvironment.new()
 	world_env.environment = environment
 	_viewport.add_child(world_env)
+
+
+## stretch_shrink no puede subir la resolución, así que se escala el
+## contenedor: se hace más grande en píxeles reales y se reduce visualmente.
+func _update_render_scale() -> void:
+	if _container == null:
+		return
+	var screen_scale := get_viewport().get_final_transform().get_scale().x
+	var factor := clampf(screen_scale, 1.0, 3.0)
+	_container.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	_container.size = size * factor
+	_container.scale = Vector2.ONE / factor
 
 
 ## Hace la física de resortes (busto, falda, pelo) más suelta.

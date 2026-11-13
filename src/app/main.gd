@@ -26,6 +26,7 @@ var _interface_actions: InterfaceActions
 var _touch: TouchInteractions
 var _current_character := ""
 var _side_column: VBoxContainer
+var _side_scroll: ScrollContainer
 var _mod_panel: Control
 var _chat: ChatView
 var _name_pill: MoodBar
@@ -113,7 +114,23 @@ func _build_layers() -> void:
 
 	column.add_child(_build_header())
 	column.add_child(TrustBar.new())
-	column.add_child(_build_side_buttons())
+	# Los botones laterales flotan aparte: así nunca empujan el chat ni la
+	# caja de texto fuera de la pantalla (p. ej. en tablets apaisadas).
+	var side_layer := MarginContainer.new()
+	side_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	side_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	side_layer.add_theme_constant_override("margin_left", 12)
+	side_layer.add_theme_constant_override("margin_top", 96)
+	var side_scroll := ScrollContainer.new()
+	side_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	side_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
+	side_scroll.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	side_scroll.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	side_scroll.mouse_filter = Control.MOUSE_FILTER_PASS
+	side_scroll.add_child(_build_side_buttons())
+	side_layer.add_child(side_scroll)
+	_side_scroll = side_scroll
+	add_child.call_deferred(side_layer)
 
 	var avatar_space := Control.new()
 	avatar_space.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -570,7 +587,11 @@ func _refresh_input_state() -> void:
 
 
 func _on_resized() -> void:
-	_chat.custom_minimum_size.y = get_viewport_rect().size.y * CHAT_HEIGHT_RATIO * 0.75
+	var view := get_viewport_rect().size
+	_chat.custom_minimum_size.y = view.y * CHAT_HEIGHT_RATIO * 0.75
+	# Los botones laterales no bajan más allá de donde empieza el chat.
+	if _side_scroll:
+		_side_scroll.custom_minimum_size.y = maxf(80.0, view.y * (1.0 - CHAT_HEIGHT_RATIO) - 130.0)
 
 
 func _load_history_into_chat() -> void:

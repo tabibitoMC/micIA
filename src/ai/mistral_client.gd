@@ -12,7 +12,7 @@ signal failed(message: String)
 
 ## Si el modelo elegido está saturado (429), se prueba con estos en orden.
 ## En el plan gratuito los límites son por modelo, así que otro suele responder.
-const FALLBACK_MODELS := ["mistral-small-latest", "mistral-medium-latest", "mistral-large-latest", "ministral-8b-latest"]
+const FALLBACK_MODELS := ["mistral-small-latest", "mistral-medium-latest", "ministral-8b-latest", "open-mistral-nemo"]
 
 var _api: MistralApi
 var _busy := false
@@ -44,12 +44,18 @@ func chat(messages: Array, api_key: String, model: String, json_mode := true, te
 
 	_busy = true
 	var response: Dictionary = {}
+	var rate_limited := false
 	for candidate in _models_to_try(model, messages):
 		payload["model"] = candidate
 		response = await _api.post_json("/chat/completions", payload, api_key)
-		if response["code"] != 429:
+		# 429 = límite de ese modelo; 403/404 = modelo no incluido en tu plan.
+		if response["code"] == 429:
+			rate_limited = true
+		elif response["code"] not in [403, 404]:
 			break
 	_busy = false
+	if not response["ok"] and rate_limited:
+		response["error"] = "Mistral está limitando tu clave (demasiadas peticiones o cuota agotada). Espera unos minutos; si sigue, crea una clave nueva en console.mistral.ai."
 	if not response["ok"]:
 		failed.emit(response["error"])
 		return
