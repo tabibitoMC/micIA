@@ -41,6 +41,7 @@ var _gift_panel: GiftPanel
 var _image_viewer: ImageViewer
 var _image_request_panel: ImageRequestPanel
 var _game_panel: GamePanel
+var _outfit_panel: OutfitPanel
 
 
 func _ready() -> void:
@@ -157,6 +158,10 @@ func _build_side_buttons() -> Control:
 	_gift_button = SideButton.new(SideButton.Icon.GIFT, "Regalo")
 	column.add_child(_gift_button)
 
+	var outfit_button := SideButton.new(SideButton.Icon.DRESS, "Ropa")
+	outfit_button.pressed.connect(_open_outfits)
+	column.add_child(outfit_button)
+
 	var games_button := SideButton.new(SideButton.Icon.GAMEPAD, "Juegos")
 	games_button.pressed.connect(_open_games)
 	column.add_child(games_button)
@@ -212,6 +217,10 @@ func _build_overlay() -> void:
 	_gift_panel.visible = false
 	center.add_child(_gift_panel)
 
+	_outfit_panel = OutfitPanel.new()
+	_outfit_panel.visible = false
+	center.add_child(_outfit_panel)
+
 	_game_panel = GamePanel.new()
 	_game_panel.visible = false
 	center.add_child(_game_panel)
@@ -262,8 +271,10 @@ var _avatar_model_path := ""
 ## Crea el avatar 3D o 2D según Ajustes y el personaje. Si el 3D falla, usa el 2D.
 func _rebuild_avatar() -> void:
 	var want_3d := bool(Settings.get_value("avatar_3d"))
-	var model_path := str(Settings.character()["model"])
+	var outfit := Settings.current_outfit()
+	var model_path := str(outfit.get("model", Settings.character()["model"]))
 	if _avatar != null and want_3d == _avatar_is_3d and (not want_3d or model_path == _avatar_model_path):
+		_avatar.apply_tint(outfit.get("cloth", Color.WHITE), outfit.get("hair", Color.WHITE))
 		return
 	_avatar_model_path = model_path
 	if _avatar != null:
@@ -292,6 +303,7 @@ func _rebuild_avatar() -> void:
 		_avatar_is_3d = false
 
 	_avatar.set_turned_away(Mood.blocked)
+	_avatar.apply_tint(outfit.get("cloth", Color.WHITE), outfit.get("hair", Color.WHITE))
 	if _interface_actions:
 		_interface_actions.avatar = _avatar
 	_avatar.struck.connect(_shake_screen)
@@ -311,6 +323,8 @@ func _connect_signals() -> void:
 	_image_viewer.closed.connect(_close_overlay)
 	_image_request_panel.closed.connect(_close_overlay)
 	_game_panel.closed.connect(_close_overlay)
+	_outfit_panel.closed.connect(_close_overlay)
+	_outfit_panel.outfit_chosen.connect(_on_outfit_chosen)
 	_game_panel.companion_said.connect(_on_game_comment)
 	_game_panel.companion_reacted.connect(func(emotion: String, action: String):
 		_avatar.set_emotion(emotion)
@@ -585,12 +599,34 @@ func _on_game_finished(for_ai: String, for_chat: String) -> void:
 		_brain.send_event(for_ai, for_chat)
 
 
+func _open_outfits() -> void:
+	_hide_panels()
+	_outfit_panel.custom_minimum_size = Vector2(minf(get_viewport_rect().size.x - 60.0, 340.0), 0)
+	_outfit_panel.refresh()
+	_outfit_panel.visible = true
+	_overlay.color = Color(0.25, 0.08, 0.18, 0.2)
+	_overlay.visible = true
+
+
+## Cambiar de ropa: se aplica al avatar y ella se entera (Mistral reacciona).
+func _on_outfit_chosen(outfit_id: String) -> void:
+	_close_overlay()
+	Settings.set_outfit(outfit_id)
+	Settings.save()
+	var label: String = Settings.current_outfit()["label"]
+	var for_chat := "Le cambiaste la ropa: %s" % label
+	_chat.add_message(ChatView.Sender.EVENT, for_chat)
+	if not Mood.blocked and not _brain.is_thinking():
+		_brain.send_event("%s te cambió la ropa al conjunto \"%s\"." % [Settings.user_display_name(), label], for_chat)
+
+
 func _hide_panels() -> void:
 	_settings_panel.visible = false
 	_gift_panel.visible = false
 	_image_viewer.visible = false
 	_image_request_panel.visible = false
 	_game_panel.visible = false
+	_outfit_panel.visible = false
 
 
 func _open_image_request() -> void:
@@ -616,6 +652,7 @@ func _close_overlay() -> void:
 	_overlay.visible = false
 	_overlay.color = Color(0.25, 0.08, 0.18, 0.45)
 	_game_panel.visible = false
+	_outfit_panel.visible = false
 	_settings_panel.visible = false
 	_gift_panel.visible = false
 	_image_viewer.visible = false

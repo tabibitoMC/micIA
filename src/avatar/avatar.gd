@@ -26,6 +26,11 @@ func set_talking(_talking: bool) -> void:
 	pass
 
 
+## Colores del conjunto de ropa (solo el avatar 3D lo usa).
+func apply_tint(_cloth: Color, _hair: Color) -> void:
+	pass
+
+
 # --- Movimiento por la pantalla (fase 3) ------------------------------------
 # Son asíncronas: se pueden usar con `await` para esperar a que terminen.
 # Las coordenadas son globales de la interfaz (las de Control.global_position).

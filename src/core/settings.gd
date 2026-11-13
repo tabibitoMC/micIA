@@ -20,6 +20,8 @@ const DEFAULTS := {
 	"personality": "tsundere",
 	"avatar_3d": true,
 	"room_theme": "dia",
+	## Conjunto elegido por personaje: {"vita": "rosa", ...}
+	"outfits": {},
 	"voice_enabled": true,
 	"voice_rate": 1.0,
 	"voice_pitch": 1.2,
@@ -65,6 +67,18 @@ func character() -> Dictionary:
 ## ¿Se permite romance/+18 ahora? (personaje adulto y opción activada)
 func adult_allowed() -> bool:
 	return bool(character()["adult"]) and bool(get_value("adult_content"))
+
+
+func current_outfit() -> Dictionary:
+	var chosen: Dictionary = get_value("outfits") if typeof(get_value("outfits")) == TYPE_DICTIONARY else {}
+	var character_id := str(get_value("character"))
+	return Characters.outfit(character_id, str(chosen.get(character_id, "original")))
+
+
+func set_outfit(outfit_id: String) -> void:
+	var chosen: Dictionary = (get_value("outfits") as Dictionary).duplicate() if typeof(get_value("outfits")) == TYPE_DICTIONARY else {}
+	chosen[str(get_value("character"))] = outfit_id
+	set_value("outfits", chosen)
 
 
 func has_api_key() -> bool:

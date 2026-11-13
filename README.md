@@ -17,6 +17,7 @@ Proyecto personal de una asistente / amiga con IA. No lo voy a comercializar ni 
 | Extra | Tocarla: caricias en la cabeza (toques lentos) y golpes (toques rápidos); ella reacciona y la IA lo registra como trato | ✅ |
 | Relación | Confianza (termómetro), rencor, estados temporales (feliz, triste, enojada, dolida, distante, lasciva), pareja, reacciones a comentarios subidos de tono según personalidad | ✅ |
 | Minijuegos | Tres en raya, piedra-papel-tijera y ajedrez (Mistral elige entre jugadas legales y comenta) y ping-pong (IA local, Mistral comenta el resultado) | ✅ |
+| Vestuario | Botón "Ropa": conjuntos por personaje (variantes de color o .vrm extra hechos en VRoid); ella se entera del cambio | ✅ |
 | Personajes | Vita (adulta, CC0) y Alicia (solo amistad, sin romance ni +18) con datos separados | ✅ |
 
 ## Estructura
@@ -46,7 +47,7 @@ src/
             vrm/vrm_expression_mixer.gd → mezcla expresiones (emoción + parpadeo + boca)
             vrm/vrm_body_poser.gd       → pose y gestos procedurales (sin archivos de animación)
   ui/       chat_view, mood_bar, side_button, block_card, room_background,
-            settings_panel, gift_panel, photo_picker, image_viewer,
+            settings_panel, gift_panel, outfit_panel, image_request_panel, photo_picker, image_viewer,
             ui_style (paleta y estilos)
   games/    mini_game.gd (base), game_ai.gd (Mistral juega), game_panel.gd (menú)
             tic_tac_toe, rock_paper_scissors, ping_pong, chess/ (chess_rules + chess_game)
@@ -76,6 +77,12 @@ Las reglas que sigue el código:
 - **Estados temporales:** duran unos mensajes. "Lasciva" se activa tras varios mensajes sugerentes con suficiente confianza y se pasa con 10 mensajes normales o si se enoja.
 - **Pareja:** con confianza ≥ 90 puedes pedírselo y ella decide.
 - **+18:** solo con el personaje adulto, con mucha confianza y con la opción activada en Ajustes. Alicia nunca tiene romance ni contenido sexual. Las imágenes generadas siempre son aptas para todo público.
+
+## Agregar ropa
+
+En `src/characters/characters.gd`, cada personaje tiene `outfits`. Para un conjunto nuevo:
+- **Solo color:** `{"id": "rojo", "label": "Rojo", "cloth": Color(1, 0.5, 0.5)}` (y opcional `"hair"`).
+- **Otra ropa:** haz el mismo personaje en VRoid con otra vestimenta, expórtalo a `assets/models/vita_pijama.vrm` y agrega `{"id": "pijama", "label": "Pijama", "model": "res://assets/models/vita_pijama.vrm"}`.
 
 ## Cambiar el modelo
 

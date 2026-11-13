@@ -102,6 +102,31 @@ func load_model(path: String) -> bool:
 	return true
 
 
+## Tiñe la ropa y el pelo según el conjunto (materiales *_CLOTH / *_HAIR de
+## VRoid). Se duplican los materiales para no modificar el recurso original.
+func apply_tint(cloth: Color, hair: Color) -> void:
+	if _model == null:
+		return
+	for mesh in _model.find_children("*", "MeshInstance3D", true, false):
+		for i in mesh.mesh.get_surface_count():
+			var source := mesh.mesh.surface_get_material(i) as ShaderMaterial
+			if source == null:
+				continue
+			var tint := Color.WHITE
+			if source.resource_name.ends_with("_CLOTH"):
+				tint = cloth
+			elif source.resource_name.contains("_HAIR"):
+				tint = hair
+			else:
+				continue
+			var material := source.duplicate() as ShaderMaterial
+			for param in ["_Color", "_ShadeColor"]:
+				var base: Variant = source.get_shader_parameter(param)
+				if base is Color:
+					material.set_shader_parameter(param, base * tint)
+			mesh.set_surface_override_material(i, material)
+
+
 func is_ready() -> bool:
 	return _poser != null and _poser.is_valid()
 
