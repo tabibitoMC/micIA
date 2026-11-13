@@ -40,6 +40,7 @@ var _settings_panel: SettingsPanel
 var _gift_panel: GiftPanel
 var _image_viewer: ImageViewer
 var _image_request_panel: ImageRequestPanel
+var _game_panel: GamePanel
 
 
 func _ready() -> void:
@@ -156,6 +157,10 @@ func _build_side_buttons() -> Control:
 	_gift_button = SideButton.new(SideButton.Icon.GIFT, "Regalo")
 	column.add_child(_gift_button)
 
+	var games_button := SideButton.new(SideButton.Icon.GAMEPAD, "Juegos")
+	games_button.pressed.connect(_open_games)
+	column.add_child(games_button)
+
 	var image_button := SideButton.new(SideButton.Icon.PICTURE, "Imagen")
 	image_button.pressed.connect(_open_image_request)
 	column.add_child(image_button)
@@ -206,6 +211,10 @@ func _build_overlay() -> void:
 	_gift_panel = GiftPanel.new()
 	_gift_panel.visible = false
 	center.add_child(_gift_panel)
+
+	_game_panel = GamePanel.new()
+	_game_panel.visible = false
+	center.add_child(_game_panel)
 
 	_image_request_panel = ImageRequestPanel.new()
 	_image_request_panel.visible = false
@@ -301,6 +310,12 @@ func _connect_signals() -> void:
 	_chat.image_tapped.connect(_open_image_viewer)
 	_image_viewer.closed.connect(_close_overlay)
 	_image_request_panel.closed.connect(_close_overlay)
+	_game_panel.closed.connect(_close_overlay)
+	_game_panel.companion_said.connect(_on_game_comment)
+	_game_panel.companion_reacted.connect(func(emotion: String, action: String):
+		_avatar.set_emotion(emotion)
+		_avatar.play_action(action))
+	_game_panel.finished.connect(_on_game_finished)
 	_image_request_panel.requested.connect(_on_user_image_requested)
 
 	_brain.reply_ready.connect(_on_reply)
@@ -542,6 +557,42 @@ func _open_gifts() -> void:
 	_overlay.visible = true
 
 
+func _open_games() -> void:
+	if Mood.blocked:
+		_chat.add_message(ChatView.Sender.SYSTEM, "%s no quiere jugar contigo ahora." % Settings.get_value("companion_name"))
+		return
+	var view := get_viewport_rect().size
+	_game_panel.custom_minimum_size = Vector2(minf(view.x - 24.0, 460.0), 0)
+	_hide_panels()
+	_game_panel.show_menu()
+	_game_panel.visible = true
+	_overlay.color = Color(0.25, 0.08, 0.18, 0.2)
+	_overlay.visible = true
+
+
+## Comentario de ella durante el juego (no se guarda en el historial).
+func _on_game_comment(text: String, emotion: String) -> void:
+	_chat.add_message(ChatView.Sender.COMPANION, text)
+	_avatar.set_emotion(emotion)
+	_voice.speak(text)
+
+
+## Al terminar el juego, ella reacciona al resultado con Mistral.
+func _on_game_finished(for_ai: String, for_chat: String) -> void:
+	_close_overlay()
+	_chat.add_message(ChatView.Sender.EVENT, for_chat)
+	if not Mood.blocked and not _brain.is_thinking():
+		_brain.send_event(for_ai, for_chat)
+
+
+func _hide_panels() -> void:
+	_settings_panel.visible = false
+	_gift_panel.visible = false
+	_image_viewer.visible = false
+	_image_request_panel.visible = false
+	_game_panel.visible = false
+
+
 func _open_image_request() -> void:
 	_image_request_panel.custom_minimum_size = Vector2(minf(get_viewport_rect().size.x - 40.0, 400.0), 0)
 	_settings_panel.visible = false
@@ -563,6 +614,8 @@ func _open_image_viewer(texture: Texture2D) -> void:
 
 func _close_overlay() -> void:
 	_overlay.visible = false
+	_overlay.color = Color(0.25, 0.08, 0.18, 0.45)
+	_game_panel.visible = false
 	_settings_panel.visible = false
 	_gift_panel.visible = false
 	_image_viewer.visible = false

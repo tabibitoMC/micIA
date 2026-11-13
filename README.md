@@ -16,6 +16,7 @@ Proyecto personal de una asistente / amiga con IA. No lo voy a comercializar ni 
 | 4 | Enviarle fotos (las ve con visión de Mistral) y que ella genere imágenes/selfies | ✅ |
 | Extra | Tocarla: caricias en la cabeza (toques lentos) y golpes (toques rápidos); ella reacciona y la IA lo registra como trato | ✅ |
 | Relación | Confianza (termómetro), rencor, estados temporales (feliz, triste, enojada, dolida, distante, lasciva), pareja, reacciones a comentarios subidos de tono según personalidad | ✅ |
+| Minijuegos | Tres en raya, piedra-papel-tijera y ajedrez (Mistral elige entre jugadas legales y comenta) y ping-pong (IA local, Mistral comenta el resultado) | ✅ |
 | Personajes | Vita (adulta, CC0) y Alicia (solo amistad, sin romance ni +18) con datos separados | ✅ |
 
 ## Estructura
@@ -47,6 +48,8 @@ src/
   ui/       chat_view, mood_bar, side_button, block_card, room_background,
             settings_panel, gift_panel, photo_picker, image_viewer,
             ui_style (paleta y estilos)
+  games/    mini_game.gd (base), game_ai.gd (Mistral juega), game_panel.gd (menú)
+            tic_tac_toe, rock_paper_scissors, ping_pong, chess/ (chess_rules + chess_game)
 addons/     godot-vrm y MToon (V-Sekai, MIT): importan los .vrm
 assets/models/ → vita.vrm, alicia.vrm
 ```

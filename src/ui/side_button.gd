@@ -5,7 +5,7 @@ extends VBoxContainer
 
 signal pressed
 
-enum Icon { GIFT, GEAR, HEART, PICTURE }
+enum Icon { GIFT, GEAR, HEART, PICTURE, GAMEPAD }
 
 const TILE_SIZE := 54.0
 
@@ -97,6 +97,13 @@ func _draw_icon() -> void:
 			]), UIStyle.PINK)
 			_icon_canvas.draw_circle(c + Vector2(s * 0.5, -s * 0.4), s * 0.22, Color("ffd54f"))
 			_icon_canvas.draw_rect(frame, UIStyle.PLUM_DIM, false, 2.0)
+		Icon.GAMEPAD:
+			var body := Rect2(c + Vector2(-s * 1.2, -s * 0.55), Vector2(s * 2.4, s * 1.2))
+			_icon_canvas.draw_style_box(UIStyle.rounded(UIStyle.PLUM_DIM, int(s * 0.6), 0), body)
+			_icon_canvas.draw_rect(Rect2(c + Vector2(-s * 0.85, -s * 0.12), Vector2(s * 0.6, s * 0.2)), UIStyle.WHITE)
+			_icon_canvas.draw_rect(Rect2(c + Vector2(-s * 0.65, -s * 0.32), Vector2(s * 0.2, s * 0.6)), UIStyle.WHITE)
+			_icon_canvas.draw_circle(c + Vector2(s * 0.5, -s * 0.15), s * 0.14, UIStyle.PINK)
+			_icon_canvas.draw_circle(c + Vector2(s * 0.8, s * 0.12), s * 0.14, Color("9fd2f5"))
 		Icon.HEART:
 			_icon_canvas.draw_circle(c + Vector2(-s * 0.5, -s * 0.2), s * 0.6, UIStyle.AFFECTION)
 			_icon_canvas.draw_circle(c + Vector2(s * 0.5, -s * 0.2), s * 0.6, UIStyle.AFFECTION)
