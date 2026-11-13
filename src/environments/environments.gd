@@ -38,7 +38,7 @@ const DATA := {
 			[F + "pictureframe_small_A.gltf", Vector3(1.9, 1.45, -2.18), 0.0],
 			[F + "cactus_small_B.gltf", Vector3(1.55, 0, -1.9), 0.0],
 		],
-		"spots": {"cama": Vector3(-1.25, 0.56, -1.75)},
+		"spots": {"cama": Vector3(-1.25, 0.56, -1.2), "almohada": Vector3(-1.25, 0.72, -1.88)},
 	},
 	"sala": {
 		"label": "Sala",

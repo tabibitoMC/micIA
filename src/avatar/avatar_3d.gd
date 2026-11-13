@@ -299,9 +299,14 @@ func set_sleeping(sleeping: bool) -> void:
 		# Acostada boca arriba, con la cabeza en la almohada (hacia la pared).
 		var bed_spot := bed as Vector3
 		_model.basis = Basis(Vector3.RIGHT, -PI / 2.0) * Basis(Vector3.UP, _base_yaw)
-		_model.position = bed_spot + Vector3(0.0, 0.05, 0.75)
-		_camera.position = bed_spot + Vector3(1.5, 1.7, 1.4)
-		_camera.look_at(bed_spot + Vector3(0, 0.0, -0.1), Vector3.UP)
+		_model.position = bed_spot
+		# Se mueve el cuerpo para que la cabeza quede sobre la almohada,
+		# así funciona con modelos de cualquier altura.
+		var pillow: Vector3 = _room.spot("almohada") if _room.spot("almohada") != null else bed_spot + Vector3(0, 0.12, -0.25)
+		_model.position += pillow - _poser.head_global_position()
+		var middle := (_poser.head_global_position() + _poser.hips_global_position()) / 2.0
+		_camera.position = middle + Vector3(1.35, 1.45, 1.0)
+		_camera.look_at(middle, Vector3.UP)
 		if _floor_shadow:
 			_floor_shadow.visible = false
 		_apply_time_light("noche")

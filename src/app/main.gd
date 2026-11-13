@@ -45,6 +45,7 @@ var _image_request_panel: ImageRequestPanel
 var _game_panel: GamePanel
 var _outfit_panel: OutfitPanel
 var _location_panel: LocationPanel
+var _welcome_panel: WelcomePanel
 ## Se despertó con el último mensaje (para contárselo a la IA una vez).
 var _just_woke := false
 
@@ -69,8 +70,7 @@ func _ready() -> void:
 	for error in Mods.errors:
 		_chat.add_message(ChatView.Sender.SYSTEM, "Mod: " + error)
 	if not Settings.has_api_key():
-		_chat.add_message(ChatView.Sender.SYSTEM, "Primero pon tu API key de Mistral en Ajustes.")
-		_open_settings()
+		_open_welcome()
 
 
 func _process(_delta: float) -> void:
@@ -238,6 +238,10 @@ func _build_overlay() -> void:
 	_gift_panel = GiftPanel.new()
 	_gift_panel.visible = false
 	center.add_child(_gift_panel)
+
+	_welcome_panel = WelcomePanel.new()
+	_welcome_panel.visible = false
+	center.add_child(_welcome_panel)
 
 	_location_panel = LocationPanel.new()
 	_location_panel.visible = false
@@ -637,6 +641,22 @@ func _on_game_finished(for_ai: String, for_chat: String) -> void:
 		_brain.send_event(for_ai, for_chat)
 
 
+## Primer inicio: pide las claves y las guarda en el dispositivo.
+func _open_welcome() -> void:
+	_hide_panels()
+	var view := get_viewport_rect().size
+	_welcome_panel.custom_minimum_size = Vector2(minf(view.x - 30.0, 440.0), minf(view.y - 60.0, 720.0))
+	_welcome_panel.visible = true
+	_overlay.visible = true
+	if not _welcome_panel.finished.is_connected(_on_welcome_finished):
+		_welcome_panel.finished.connect(_on_welcome_finished)
+
+
+func _on_welcome_finished() -> void:
+	_close_overlay()
+	_chat.add_message(ChatView.Sender.EVENT, "¡Listo! Ya puedes hablar con %s." % Settings.get_value("companion_name"))
+
+
 func _open_locations() -> void:
 	if not _avatar_is_3d:
 		_chat.add_message(ChatView.Sender.SYSTEM, "Los lugares necesitan el avatar 3D (Ajustes).")
@@ -717,6 +737,7 @@ func _hide_panels() -> void:
 	_game_panel.visible = false
 	_outfit_panel.visible = false
 	_location_panel.visible = false
+	_welcome_panel.visible = false
 	if _mod_panel:
 		_mod_panel.visible = false
 
@@ -751,6 +772,7 @@ func _close_overlay() -> void:
 	_gift_panel.visible = false
 	_image_viewer.visible = false
 	_location_panel.visible = false
+	_welcome_panel.visible = false
 
 
 ## En Android, deja espacio para que el teclado no tape la caja de texto.

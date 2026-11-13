@@ -102,6 +102,10 @@ Modelos incluidos: **Vita** (muestra de VRoid Studio, licencia CC0) y **Alicia S
 
 Si el 3D va lento (por ejemplo en la consola), en Ajustes apaga **Avatar 3D** y se usa la cara 2D.
 
+## Primer inicio
+
+Al abrir la app por primera vez aparece una pantalla de bienvenida que pide tu nombre, la API key de Mistral (obligatoria) y, opcionalmente, las de Cloudflare y AI Horde. Se guardan solo en el dispositivo (`user://settings.cfg`), nunca en el código. Se cambian después en Ajustes.
+
 ## Cómo probar en PC
 
 1. Abre la carpeta con Godot 4.7 → **Importar** → selecciona `project.godot`.
@@ -116,6 +120,8 @@ Para no escribir la clave cada vez en PC, también puedes crear `config.json` en
 Los datos (ajustes, historial, ánimo) se guardan en `user://`. En Windows es `%APPDATA%\Godot\app_userdata\micIA`.
 
 ## Exportar
+
+`export_presets.cfg` ya trae los presets **Android** (arm64, Android 16 / API 36 como objetivo, funciona desde Android 7) y **Linux ARM64**. La contraseña del keystore no se guarda en el repo: ponla en Proyecto → Exportar → Android → Keystore, o usa las variables `GODOT_ANDROID_KEYSTORE_RELEASE_PATH/_USER/_PASSWORD`.
 
 Primero: **Editor → Gestionar plantillas de exportación → Descargar**.
 
