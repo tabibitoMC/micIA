@@ -55,6 +55,46 @@ func set_turned_away(_away: bool) -> void:
 	pass
 
 
+# --- Lugares (solo el avatar 3D tiene habitaciones) --------------------------
+
+func set_room(_env_id: String, _time_theme: String) -> void:
+	pass
+
+
+func set_time_of_day(_time_theme: String) -> void:
+	pass
+
+
+func current_room() -> String:
+	return ""
+
+
+func fade(_to_black: bool, _seconds := 0.35) -> void:
+	pass
+
+
+func place_at_side(_from_left: bool) -> void:
+	pass
+
+
+## Sale caminando por un lado (para cambiar de lugar).
+func walk_out(to_right: bool) -> void:
+	await walk_to_screen_x(get_viewport_rect().size.x * (1.0 if to_right else 0.0))
+
+
+func set_sleeping(_sleeping: bool) -> void:
+	pass
+
+
+func is_sleeping() -> bool:
+	return false
+
+
+## Posición en pantalla de la ventana del cuarto (o null si no hay).
+func window_screen_position() -> Variant:
+	return null
+
+
 func _gui_input(event: InputEvent) -> void:
 	# En Android los toques llegan también como clic de mouse (emulación por
 	# defecto de Godot), así que basta con escuchar el clic.

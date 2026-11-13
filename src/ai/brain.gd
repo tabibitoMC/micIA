@@ -16,6 +16,9 @@ const CONTEXT_MESSAGES := 16
 ## Lado máximo de las fotos que se envían a la IA (menos datos, más rápido).
 const PHOTO_MAX_SIDE := 1024
 
+## Descripción de dónde está ella ahora (la pone main.gd).
+var scene_context: Callable = func() -> String: return ""
+
 var _client: MistralClient
 var _pending_user_entry: Dictionary = {}
 
@@ -92,6 +95,7 @@ func _system_prompt() -> String:
 		"treatment_summary": Mood.treatment_summary(),
 		"facts": Memory.facts,
 		"mods_prompt": Mods.extra_prompt(),
+		"scene": scene_context.call(),
 	})
 
 

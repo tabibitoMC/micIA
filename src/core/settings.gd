@@ -20,6 +20,8 @@ const DEFAULTS := {
 	"personality": "tsundere",
 	"avatar_3d": true,
 	"room_theme": "dia",
+	## Lugar de la casa donde está ella (ver Environments).
+	"location": "dormitorio",
 	## Conjunto elegido por personaje: {"vita": "rosa", ...}
 	"outfits": {},
 	"voice_enabled": true,

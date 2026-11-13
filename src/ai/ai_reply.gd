@@ -14,7 +14,8 @@ const EMOTIONS := ["neutral", "feliz", "triste", "enojada", "sorprendida", "aver
 const ACTIONS := ["ninguna", "saludar", "asentir", "negar", "cruzar_brazos", "saltar", "mirar_otro_lado", "golpear", "llorar"]
 const TREATMENTS := ["bueno", "neutral", "malo", "abusivo"]
 ## Cosas que ella puede hacer con la interfaz (ver InterfaceActions).
-const INTERFACE_ACTIONS := ["ninguna", "pedir_regalo", "fondo_dia", "fondo_atardecer", "fondo_noche", "pasear"]
+const INTERFACE_ACTIONS := ["ninguna", "pedir_regalo", "fondo_dia", "fondo_atardecer", "fondo_noche", "pasear",
+	"ir_dormitorio", "ir_sala", "ir_cocina", "ir_patio", "dormir"]
 
 ## Límites de cuánto puede cambiar el ánimo en un solo mensaje.
 const ANGER_DELTA_RANGE := Vector2i(-15, 25)

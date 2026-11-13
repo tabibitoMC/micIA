@@ -38,6 +38,31 @@ const MOUTH_SHAPES := ["aa", "ih", "ou", "ee", "oh"]
 var _viewport: SubViewport
 var _camera: Camera3D
 var _floor_shadow: MeshInstance3D
+var _container: SubViewportContainer
+var _environment: Environment
+var _room: Room3D
+var _sleeping := false
+var _key_light: DirectionalLight3D
+## Encuadre más abierto cuando hay habitación.
+var _wide_framing := false
+var _camera_awake: Transform3D
+
+## Corrección de color de la imagen 3D (menos "flash"): un poco menos de
+## brillo, más contraste y más saturación.
+const GRADING_SHADER := """
+shader_type canvas_item;
+uniform float brightness = 0.97;
+uniform float contrast = 1.08;
+uniform float saturation = 1.12;
+void fragment() {
+	vec4 c = texture(TEXTURE, UV);
+	vec3 col = c.rgb * brightness;
+	col = (col - 0.5) * contrast + 0.5;
+	float l = dot(col, vec3(0.299, 0.587, 0.114));
+	col = mix(vec3(l), col, saturation);
+	COLOR = vec4(clamp(col, 0.0, 1.0), c.a);
+}
+"""
 var _model: Node3D
 var _mixer: VrmExpressionMixer
 var _poser: VrmBodyPoser
@@ -205,6 +230,113 @@ func play_action(action: String) -> void:
 			_action_tween.kill()
 
 
+# --- Lugares (habitaciones 3D) ------------------------------------------------
+
+## Construye la habitación alrededor de ella. time_theme: dia/atardecer/noche.
+func set_room(env_id: String, time_theme: String) -> void:
+	if _room == null:
+		_room = Room3D.new()
+		_viewport.add_child(_room)
+	_room.build(env_id, time_theme)
+	_viewport.transparent_bg = false
+	_environment.background_color = Room3D.SKY.get(time_theme, Room3D.SKY["dia"])[0]
+	if _floor_shadow:
+		_floor_shadow.visible = false
+	# Con habitación se aleja un poco la cámara para que se vea el lugar.
+	_wide_framing = true
+	_frame_camera()
+	_apply_time_light(time_theme)
+
+
+func set_time_of_day(time_theme: String) -> void:
+	if _room:
+		_room.set_time(time_theme)
+		_environment.background_color = Room3D.SKY.get(time_theme, Room3D.SKY["dia"])[0]
+	_apply_time_light(time_theme)
+
+
+func current_room() -> String:
+	return _room.env_id if _room else ""
+
+
+func window_screen_position() -> Variant:
+	if _room == null:
+		return null
+	var window: Variant = Environments.fetch(_room.env_id).get("window")
+	return _world_to_screen(window) if window != null else null
+
+
+## Pantalla a negro y de vuelta (para cambiar de lugar).
+func fade(to_black: bool, seconds := 0.35) -> void:
+	var tween := create_tween()
+	tween.tween_property(self, "modulate", Color(0.05, 0.02, 0.05) if to_black else Color.WHITE, seconds)
+	await tween.finished
+
+
+## Sale caminando por un lado del cuarto.
+func walk_out(to_right: bool) -> void:
+	if _poser == null:
+		return
+	await _walk_to_world_x((Environments.SIDE_X - 0.5) * (1.0 if to_right else -1.0))
+
+
+## Pone al modelo en el borde izquierdo o derecho del cuarto (para entrar caminando).
+func place_at_side(from_left: bool) -> void:
+	_model.position.x = -Environments.SIDE_X + 0.6 if from_left else Environments.SIDE_X - 0.6
+
+
+## Acostarse a dormir en la cama del cuarto (o despertar).
+func set_sleeping(sleeping: bool) -> void:
+	if sleeping == _sleeping or _model == null:
+		return
+	if sleeping:
+		var bed: Variant = _room.spot("cama") if _room else null
+		if bed == null:
+			return
+		_sleeping = true
+		_reset_action_params()
+		_camera_awake = _camera.transform
+		# Acostada boca arriba, con la cabeza en la almohada (hacia la pared).
+		var bed_spot := bed as Vector3
+		_model.basis = Basis(Vector3.RIGHT, -PI / 2.0) * Basis(Vector3.UP, _base_yaw)
+		_model.position = bed_spot + Vector3(0.0, 0.05, 0.75)
+		_camera.position = bed_spot + Vector3(1.5, 1.7, 1.4)
+		_camera.look_at(bed_spot + Vector3(0, 0.0, -0.1), Vector3.UP)
+		if _floor_shadow:
+			_floor_shadow.visible = false
+		_apply_time_light("noche")
+	else:
+		_sleeping = false
+		_model.basis = Basis(Vector3.UP, _base_yaw)
+		_model.position = Vector3(_home_x, _model_base_y, 0.0)
+		_camera.transform = _camera_awake
+		_apply_time_light(str(Settings.get_value("room_theme")))
+
+
+func is_sleeping() -> bool:
+	return _sleeping
+
+
+## Luces más cálidas al atardecer y más tenues de noche.
+func _apply_time_light(time_theme: String) -> void:
+	var key := _key_light
+	if key == null:
+		return
+	match time_theme:
+		"atardecer":
+			key.light_color = Color(1.0, 0.82, 0.68)
+			key.light_energy = 0.42
+			_environment.ambient_light_color = Color(1.0, 0.85, 0.85)
+		"noche":
+			key.light_color = Color(0.75, 0.78, 1.0)
+			key.light_energy = 0.28
+			_environment.ambient_light_color = Color(0.78, 0.78, 1.0)
+		_:
+			key.light_color = Color(1.0, 0.96, 0.93)
+			key.light_energy = 0.45
+			_environment.ambient_light_color = Color(1.0, 0.92, 0.95)
+
+
 func walk_to_screen_x(x: float) -> void:
 	if _poser == null:
 		return
@@ -294,6 +426,9 @@ func _process(delta: float) -> void:
 	if _poser == null or _mixer == null:
 		return
 	_poser.update(delta)
+	if _sleeping:
+		_update_face(delta)
+		return
 	_model.position.y = _model_base_y + _jump_offset + _poser.walk_bounce()
 	_model.rotation.y = _base_yaw + _facing_offset
 	if _floor_shadow:
@@ -313,6 +448,11 @@ func _update_face(delta: float) -> void:
 		if expression in EYES_CLOSED_EXPRESSIONS and _emotion_goals[expression] > 0.5:
 			eyes_closed = true
 
+	if _sleeping:
+		_mixer.set_goal("blink", 1.0)
+		_mixer.set_goal("relaxed", 0.4)
+		_mixer.update(delta, 4.0)
+		return
 	# Parpadeo
 	_blink_timer -= delta
 	if _blink_timer <= 0.0:
@@ -360,6 +500,12 @@ func _build_viewport() -> void:
 	container.stretch = true
 	container.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	container.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var grading := Shader.new()
+	grading.code = GRADING_SHADER
+	var grading_material := ShaderMaterial.new()
+	grading_material.shader = grading
+	container.material = grading_material
+	_container = container
 	add_child(container)
 
 	_viewport = SubViewport.new()
@@ -376,23 +522,24 @@ func _build_viewport() -> void:
 	var key_light := DirectionalLight3D.new()
 	key_light.rotation_degrees = Vector3(-38, 28, 0)
 	key_light.light_color = Color(1.0, 0.96, 0.93)
-	key_light.light_energy = 0.8
+	key_light.light_energy = 0.45
 	key_light.shadow_enabled = true
 	key_light.shadow_bias = 0.03
 	key_light.shadow_blur = 1.5
 	key_light.directional_shadow_max_distance = 8.0
 	_viewport.add_child(key_light)
+	_key_light = key_light
 	# Relleno suave y frío desde la izquierda (suaviza las sombras).
 	var fill_light := DirectionalLight3D.new()
 	fill_light.rotation_degrees = Vector3(-15, -55, 0)
 	fill_light.light_color = Color(0.85, 0.88, 1.0)
-	fill_light.light_energy = 0.12
+	fill_light.light_energy = 0.06
 	_viewport.add_child(fill_light)
 	# Contraluz rosado: dibuja el contorno y da sensación de volumen.
 	var rim_light := DirectionalLight3D.new()
 	rim_light.rotation_degrees = Vector3(-20, 160, 0)
 	rim_light.light_color = Color(1.0, 0.75, 0.85)
-	rim_light.light_energy = 0.25
+	rim_light.light_energy = 0.15
 	_viewport.add_child(rim_light)
 
 	var environment := Environment.new()
@@ -400,6 +547,7 @@ func _build_viewport() -> void:
 	environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	environment.ambient_light_color = Color(1.0, 0.92, 0.95)
 	environment.ambient_light_energy = 0.3
+	_environment = environment
 	var world_env := WorldEnvironment.new()
 	world_env.environment = environment
 	_viewport.add_child(world_env)
@@ -458,12 +606,20 @@ func _place_floor_shadow() -> void:
 
 
 ## Encuadre de la cintura para arriba, como en las apps de compañeras.
+## wide = true: más abierto y desde un poco más arriba, para ver la habitación.
 func _frame_camera() -> void:
 	if _poser == null:
 		return
+	var wide := _wide_framing
 	var head := _poser.head_global_position()
 	var hips := _poser.hips_global_position()
 	var body_height := maxf(0.3, head.y - hips.y)
+	if wide:
+		_camera.fov = 34.0
+		var target := Vector3(0, head.y - body_height * 0.7, 0)
+		_camera.position = target + Vector3(0, body_height * 0.55, body_height * 4.8)
+		_camera.look_at(target, Vector3.UP)
+		return
 	# Se apunta un poco por debajo del pecho: la cabeza queda en el tercio
 	# superior y la parte baja de la pantalla (donde va el chat) muestra el torso.
 	var look_at_point := Vector3(head.x, head.y - body_height * 0.55, head.z)

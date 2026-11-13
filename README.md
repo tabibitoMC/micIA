@@ -19,6 +19,7 @@ Proyecto personal de una asistente / amiga con IA. No lo voy a comercializar ni 
 | Minijuegos | Tres en raya, piedra-papel-tijera y ajedrez (Mistral elige entre jugadas legales y comenta) y ping-pong (IA local, Mistral comenta el resultado) | ✅ |
 | Vestuario | Botón "Ropa": conjuntos por personaje (variantes de color o .vrm extra hechos en VRoid); ella se entera del cambio | ✅ |
 | Mods | Carpeta `mods/` (y `user://mods/`) con ganchos y API para extender la app sin tocar el código principal; ver `mods/README.md` | ✅ |
+| Lugares | Habitaciones 3D con muebles (KayKit, CC0): dormitorio, sala, cocina y patio con piscina. Ella va de un lugar a otro caminando, duerme en su cama, y tú puedes llevarla con el botón "Lugar" | ✅ |
 | Personajes | Vita (adulta, CC0) y Alicia (solo amistad, sin romance ni +18) con datos separados | ✅ |
 
 ## Estructura
@@ -50,10 +51,12 @@ src/
   ui/       chat_view, mood_bar, side_button, block_card, room_background,
             settings_panel, gift_panel, outfit_panel, image_request_panel, photo_picker, image_viewer,
             ui_style (paleta y estilos)
+  environments/ environments.gd (catálogo de lugares) y room_3d.gd (construye cada habitación)
   games/    mini_game.gd (base), game_ai.gd (Mistral juega), game_panel.gd (menú)
             tic_tac_toe, rock_paper_scissors, ping_pong, chess/ (chess_rules + chess_game)
   mods/     mic_mod.gd (base), mod_api.gd (lo que un mod puede hacer), mod_loader.gd (autoload Mods)
 mods/       tus mods (plantilla en mods/_plantilla, guía en mods/README.md)
+assets/environment/ muebles KayKit (CC0)
 addons/     godot-vrm y MToon (V-Sekai, MIT): importan los .vrm
 assets/models/ → vita.vrm, alicia.vrm
 ```
@@ -80,6 +83,10 @@ Las reglas que sigue el código:
 - **Estados temporales:** duran unos mensajes. "Lasciva" se activa tras varios mensajes sugerentes con suficiente confianza y se pasa con 10 mensajes normales o si se enoja.
 - **Pareja:** con confianza ≥ 90 puedes pedírselo y ella decide.
 - **+18:** solo con el personaje adulto, con mucha confianza y con la opción activada en Ajustes. Alicia nunca tiene romance ni contenido sexual. Las imágenes generadas siempre son aptas para todo público.
+
+## Agregar lugares o muebles
+
+En `src/environments/environments.gd` cada lugar tiene colores, ventana y una lista de `props` (`[ruta del modelo, posición, giro, escala]`). Los muebles disponibles están en `assets/environment/`; hay más modelos gratis en los paquetes de KayKit (Furniture Bits, Restaurant Bits) y Kenney.
 
 ## Agregar ropa
 

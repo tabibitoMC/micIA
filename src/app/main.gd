@@ -44,6 +44,9 @@ var _image_viewer: ImageViewer
 var _image_request_panel: ImageRequestPanel
 var _game_panel: GamePanel
 var _outfit_panel: OutfitPanel
+var _location_panel: LocationPanel
+## Se despertó con el último mensaje (para contárselo a la IA una vez).
+var _just_woke := false
 
 
 func _ready() -> void:
@@ -166,6 +169,10 @@ func _build_side_buttons() -> Control:
 	_gift_button = SideButton.new(SideButton.Icon.GIFT, "Regalo")
 	column.add_child(_gift_button)
 
+	var place_button := SideButton.new(SideButton.Icon.PLACE, "Lugar")
+	place_button.pressed.connect(_open_locations)
+	column.add_child(place_button)
+
 	var outfit_button := SideButton.new(SideButton.Icon.DRESS, "Ropa")
 	outfit_button.pressed.connect(_open_outfits)
 	column.add_child(outfit_button)
@@ -188,9 +195,12 @@ func _build_input_row() -> Control:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 8)
 	_photo_button = Button.new()
-	_photo_button.text = "Foto"
+	_photo_button.text = ""
+	_photo_button.icon = Icons.texture("camera", UIStyle.PINK_DEEP, 48)
+	_photo_button.expand_icon = true
+	_photo_button.add_theme_constant_override("icon_max_width", 26)
 	_photo_button.tooltip_text = "Mandarle una foto"
-	_photo_button.custom_minimum_size = Vector2(64, 50)
+	_photo_button.custom_minimum_size = Vector2(54, 50)
 	UIStyle.style_button(_photo_button, UIStyle.ButtonKind.SECONDARY)
 	row.add_child(_photo_button)
 	_input = LineEdit.new()
@@ -198,8 +208,12 @@ func _build_input_row() -> Control:
 	_input.custom_minimum_size = Vector2(0, 50)
 	row.add_child(_input)
 	_send_button = Button.new()
-	_send_button.text = "Enviar"
-	_send_button.custom_minimum_size = Vector2(90, 50)
+	_send_button.text = ""
+	_send_button.tooltip_text = "Enviar"
+	_send_button.icon = Icons.texture("send", UIStyle.WHITE, 48)
+	_send_button.expand_icon = true
+	_send_button.add_theme_constant_override("icon_max_width", 24)
+	_send_button.custom_minimum_size = Vector2(56, 50)
 	row.add_child(_send_button)
 	return row
 
@@ -224,6 +238,10 @@ func _build_overlay() -> void:
 	_gift_panel = GiftPanel.new()
 	_gift_panel.visible = false
 	center.add_child(_gift_panel)
+
+	_location_panel = LocationPanel.new()
+	_location_panel.visible = false
+	center.add_child(_location_panel)
 
 	_outfit_panel = OutfitPanel.new()
 	_outfit_panel.visible = false
@@ -253,7 +271,7 @@ func _build_services() -> void:
 	_interface_actions.room = _room
 	_interface_actions.gift_button = _gift_button
 	_interface_actions.is_occupied = func() -> bool:
-		return Mood.blocked or _brain.is_thinking() or _input.has_focus() or _overlay.visible
+		return Mood.blocked or _brain.is_thinking() or _input.has_focus() or _overlay.visible or _avatar.is_sleeping()
 	add_child(_interface_actions)
 	_touch = TouchInteractions.new()
 	_touch.event_ready.connect(_on_touch_event)
@@ -297,6 +315,7 @@ func _rebuild_avatar() -> void:
 		if avatar_3d.is_ready():
 			_avatar = avatar_3d
 			_avatar_is_3d = true
+			avatar_3d.set_room(str(Settings.get_value("location")), str(Settings.get_value("room_theme")))
 		else:
 			avatar_3d.queue_free()
 			_chat.add_message(ChatView.Sender.SYSTEM, "No se pudo cargar el avatar 3D; uso el 2D.")
@@ -311,6 +330,8 @@ func _rebuild_avatar() -> void:
 		_avatar_is_3d = false
 
 	_avatar.set_turned_away(Mood.blocked)
+	# El fondo dibujado solo se usa con el avatar 2D (el 3D tiene habitaciones).
+	_room.visible = not _avatar_is_3d
 	_avatar.apply_tint(outfit.get("cloth", Color.WHITE), outfit.get("hair", Color.WHITE))
 	if _interface_actions:
 		_interface_actions.avatar = _avatar
@@ -333,6 +354,9 @@ func _connect_signals() -> void:
 	_image_request_panel.closed.connect(_close_overlay)
 	_game_panel.closed.connect(_close_overlay)
 	_outfit_panel.closed.connect(_close_overlay)
+	_location_panel.closed.connect(_close_overlay)
+	_location_panel.place_chosen.connect(_on_place_chosen)
+	_brain.scene_context = _describe_scene
 	_outfit_panel.outfit_chosen.connect(_on_outfit_chosen)
 	_game_panel.companion_said.connect(_on_game_comment)
 	_game_panel.companion_reacted.connect(func(emotion: String, action: String):
@@ -374,6 +398,9 @@ func _on_send() -> void:
 		return
 	_input.clear()
 	_chat.add_message(ChatView.Sender.USER, text)
+	if _avatar.is_sleeping():
+		_avatar.set_sleeping(false)
+		_just_woke = true
 	_brain.send_message(text)
 
 
@@ -507,6 +534,7 @@ func _on_settings_changed() -> void:
 
 ## Si ella cambió el fondo, se guarda para la próxima vez.
 func _on_room_theme_changed(theme_id: String) -> void:
+	_avatar.set_time_of_day(theme_id)
 	if str(Settings.get_value("room_theme")) != theme_id:
 		Settings.set_value("room_theme", theme_id)
 		Settings.save()
@@ -609,6 +637,43 @@ func _on_game_finished(for_ai: String, for_chat: String) -> void:
 		_brain.send_event(for_ai, for_chat)
 
 
+func _open_locations() -> void:
+	if not _avatar_is_3d:
+		_chat.add_message(ChatView.Sender.SYSTEM, "Los lugares necesitan el avatar 3D (Ajustes).")
+		return
+	_hide_panels()
+	_location_panel.custom_minimum_size = Vector2(minf(get_viewport_rect().size.x - 60.0, 320.0), 0)
+	_location_panel.refresh(_avatar.current_room())
+	_location_panel.visible = true
+	_overlay.color = Color(0.25, 0.08, 0.18, 0.2)
+	_overlay.visible = true
+
+
+## La llevas a otro lugar: camina hasta allá y ella se entera.
+func _on_place_chosen(place_id: String) -> void:
+	_close_overlay()
+	if place_id == _avatar.current_room() or _interface_actions.is_busy():
+		return
+	var label: String = Environments.fetch(place_id)["label"]
+	await _interface_actions.perform("ir_" + place_id)
+	var for_chat := "Fueron a: %s" % label
+	_chat.add_message(ChatView.Sender.EVENT, for_chat)
+	if not Mood.blocked and not _brain.is_thinking():
+		_brain.send_event("%s te llevó a: %s." % [Settings.user_display_name(), label], for_chat)
+
+
+## Texto para la IA: dónde está ella y si estaba dormida.
+func _describe_scene() -> String:
+	var place := _avatar.current_room()
+	var text := ("Estás en: %s de tu casa." % Environments.fetch(place)["label"]) if place != "" else ""
+	if _avatar.is_sleeping():
+		text += " Estás dormida en tu cama."
+	elif _just_woke:
+		text += " Estabas dormida y él te acaba de despertar con su mensaje."
+		_just_woke = false
+	return text
+
+
 func _open_outfits() -> void:
 	_hide_panels()
 	_outfit_panel.custom_minimum_size = Vector2(minf(get_viewport_rect().size.x - 60.0, 340.0), 0)
@@ -651,6 +716,7 @@ func _hide_panels() -> void:
 	_image_request_panel.visible = false
 	_game_panel.visible = false
 	_outfit_panel.visible = false
+	_location_panel.visible = false
 	if _mod_panel:
 		_mod_panel.visible = false
 
@@ -684,6 +750,7 @@ func _close_overlay() -> void:
 	_settings_panel.visible = false
 	_gift_panel.visible = false
 	_image_viewer.visible = false
+	_location_panel.visible = false
 
 
 ## En Android, deja espacio para que el teclado no tape la caja de texto.

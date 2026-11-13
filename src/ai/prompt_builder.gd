@@ -23,7 +23,9 @@ static func build_system_prompt(context: Dictionary) -> String:
 	if context.has("relationship_description"):
 		parts.append("RELACIÓN:\n" + str(context["relationship_description"]))
 	if context.has("room_theme"):
-		parts.append("TU HABITACIÓN AHORA: ambiente de " + str(context["room_theme"]) + ".")
+		parts.append("HORA DEL DÍA: " + str(context["room_theme"]) + ".")
+	if not str(context.get("scene", "")).is_empty():
+		parts.append("DÓNDE ESTÁS: " + str(context["scene"]))
 	if not str(context["treatment_summary"]).is_empty():
 		parts.append("CÓMO TE HA TRATADO ÚLTIMAMENTE: " + str(context["treatment_summary"]))
 
@@ -58,7 +60,7 @@ static func _format_instructions() -> String:
 - afecto: entero de %d a %d. Cuánto cambia tu cariño por él.
 - trato: cómo te trató en su último mensaje: una de %s.
 - recordar: un dato nuevo e importante sobre él para recordar a largo plazo (gustos, nombres, planes), o "" si no hay nada nuevo.
-- interfaz: algo que haces moviéndote por la app: una de %s. "pedir_regalo" = caminas hasta el botón de regalos y lo señalas (cuando quieres que te dé un regalo); "fondo_dia"/"fondo_atardecer"/"fondo_noche" = caminas a la ventana y cambias la habitación (si él te lo pide o si tiene sentido, p. ej. dices que ya es de noche); "pasear" = caminas un poco. Usa "ninguna" casi siempre.
+- interfaz: algo que haces moviéndote por la app: una de %s. "pedir_regalo" = caminas hasta el botón de regalos y lo señalas (cuando quieres que te dé un regalo); "fondo_dia"/"fondo_atardecer"/"fondo_noche" = caminas a la ventana y cambias la habitación (si él te lo pide o si tiene sentido, p. ej. dices que ya es de noche); "pasear" = caminas un poco; "ir_dormitorio"/"ir_sala"/"ir_cocina"/"ir_patio" = vas a ese lugar de la casa; "dormir" = te acuestas a dormir en tu cama (cuando tienes sueño o él te dice buenas noches). Usa "ninguna" casi siempre.
 - picante: entero de 0 a 3. Qué tan sugerente fue SU último mensaje: 0 nada, 1 coqueteo o broma pícara, 2 subido de tono/sensual, 3 sexual explícito.
 - acepta_pareja: true solo si en esta respuesta aceptas ser su pareja; si no, false.
 - imagen: "" casi siempre. Si quieres mandarle una imagen, escribe aquí una descripción detallada EN INGLÉS de la imagen (estilo anime). Si es una foto tuya, incluye tu apariencia completa.""" % [

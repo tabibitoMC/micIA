@@ -44,13 +44,39 @@ func perform(action: String) -> void:
 			gift_button.pulse()
 			await avatar.go_home()
 		"fondo_dia", "fondo_atardecer", "fondo_noche":
-			await _walk_and_point(room.window_global_center())
+			var window: Variant = avatar.window_screen_position()
+			await _walk_and_point(window if window != null else room.window_global_center())
 			room.set_room_theme(action.trim_prefix("fondo_"))
 			await avatar.go_home()
+		"ir_dormitorio", "ir_sala", "ir_cocina", "ir_patio":
+			await go_to(action.trim_prefix("ir_"))
+		"dormir":
+			if avatar.current_room() != "dormitorio":
+				await go_to("dormitorio")
+			await avatar.fade(true, 0.4)
+			avatar.set_sleeping(true)
+			await avatar.fade(false, 0.6)
 		"pasear":
 			await _wander()
 	_busy = false
 	_restart_wander_timer()
+
+
+## Camina hasta el borde, cambia de lugar y entra caminando por el otro lado.
+func go_to(place: String) -> void:
+	if avatar.current_room() == "" or avatar.current_room() == place:
+		return
+	if avatar.is_sleeping():
+		avatar.set_sleeping(false)
+	var to_right := randf() < 0.5
+	await avatar.walk_out(to_right)
+	await avatar.fade(true)
+	avatar.set_room(place, str(Settings.get_value("room_theme")))
+	Settings.set_value("location", place)
+	Settings.save()
+	avatar.place_at_side(not to_right)
+	await avatar.fade(false)
+	await avatar.go_home()
 
 
 ## Camina hasta quedar al lado del punto y lo señala.
