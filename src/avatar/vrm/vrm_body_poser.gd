@@ -13,6 +13,7 @@ extends RefCounted
 ## Huesos humanoides estándar (nombres del perfil humanoide de Godot).
 const ARM_BONES := ["LeftUpperArm", "LeftLowerArm", "RightUpperArm", "RightLowerArm"]
 const TORSO_BONES := ["Spine", "Chest", "UpperChest", "Neck", "Head"]
+const LEG_BONES := ["LeftUpperLeg", "LeftLowerLeg", "RightUpperLeg", "RightLowerLeg"]
 
 ## Parámetros animables (los modifica Avatar3D con tweens).
 var head_pitch := 0.0   # + = mirar abajo (asentir)
@@ -22,17 +23,22 @@ var body_lean := 0.0    # inclinar el torso a los lados
 var wave := 0.0         # 0..1 brazo derecho levantado saludando
 var wave_swing := 0.0   # vaivén de la mano al saludar
 var arms_crossed := 0.0 # 0..1 brazos cruzados
+var walk_amount := 0.0  # 0..1 intensidad de la caminata (la fase avanza sola)
+var point_amount := 0.0 # 0..1 brazo señalando hacia point_direction
+var point_direction := Vector3.FORWARD  # espacio del esqueleto
+var point_side := "Right"
 
 var _skeleton: Skeleton3D
 var _bones: Dictionary = {}   # nombre -> índice
 var _forward := Vector3.FORWARD
 var _right := Vector3.RIGHT
 var _time := 0.0
+var _walk_phase := 0.0
 
 
 func _init(skeleton: Skeleton3D) -> void:
 	_skeleton = skeleton
-	for bone_name in ARM_BONES + TORSO_BONES + ["LeftHand", "RightHand", "Hips"]:
+	for bone_name in ARM_BONES + TORSO_BONES + LEG_BONES + ["LeftHand", "RightHand", "Hips", "LeftFoot", "RightFoot"]:
 		var index := skeleton.find_bone(bone_name)
 		if index != -1:
 			_bones[bone_name] = index
@@ -58,8 +64,25 @@ func hips_global_position() -> Vector3:
 	return _skeleton.global_transform * _skeleton.get_bone_global_pose(hips).origin
 
 
+## Altura extra del cuerpo durante la caminata (rebote), en metros.
+func walk_bounce() -> float:
+	return absf(sin(_walk_phase)) * 0.025 * walk_amount
+
+
+## Convierte una dirección del mundo al espacio del esqueleto.
+func world_to_skeleton_direction(direction: Vector3) -> Vector3:
+	return (_skeleton.global_transform.basis.orthonormalized().inverse() * direction).normalized()
+
+
+## Posición global del hombro de un lado ("Left"/"Right").
+func shoulder_global_position(side: String) -> Vector3:
+	var bone: int = _bones[side + "UpperArm"]
+	return _skeleton.global_transform * _skeleton.get_bone_global_pose(bone).origin
+
+
 func update(delta: float) -> void:
 	_time += delta
+	_walk_phase += delta * 7.0 * walk_amount
 	for bone_name in _bones:
 		var index: int = _bones[bone_name]
 		_skeleton.set_bone_pose_rotation(index, _skeleton.get_bone_rest(index).basis.get_rotation_quaternion())
@@ -79,7 +102,20 @@ func update(delta: float) -> void:
 	_rotate_global("Head", Vector3.UP, head_yaw)
 	_rotate_global("Head", _forward, head_roll + deg_to_rad(2.0) * sway)
 
+	_pose_legs()
 	_pose_arms()
+
+
+func _pose_legs() -> void:
+	if walk_amount <= 0.001:
+		return
+	for prefix in ["Left", "Right"]:
+		var phase := _walk_phase + (0.0 if prefix == "Left" else PI)
+		var swing := sin(phase) * deg_to_rad(28.0) * walk_amount
+		# Rodilla: se dobla al llevar la pierna hacia adelante
+		var knee := maxf(0.0, sin(phase + 0.9)) * deg_to_rad(40.0) * walk_amount
+		_rotate_global(prefix + "UpperLeg", _right, swing)
+		_rotate_global(prefix + "LowerLeg", _right, -knee)
 
 
 func _pose_arms() -> void:
@@ -96,6 +132,18 @@ func _pose_arms() -> void:
 
 		var upper := relaxed_upper.slerp(crossed_upper, arms_crossed)
 		var lower := relaxed_lower.slerp(crossed_lower, arms_crossed)
+
+		# Balanceo de brazos al caminar (opuesto a la pierna del mismo lado)
+		if walk_amount > 0.001:
+			var phase := _walk_phase + (PI if prefix == "Left" else 0.0)
+			var arm_swing := _forward * sin(phase) * 0.35 * walk_amount
+			upper = (upper + arm_swing).normalized()
+			lower = (lower + arm_swing * 1.3).normalized()
+
+		# Señalar algo (un botón, la ventana...)
+		if prefix == point_side and point_amount > 0.0:
+			upper = upper.slerp(point_direction, point_amount)
+			lower = lower.slerp(point_direction, point_amount)
 
 		if prefix == "Right" and wave > 0.0:
 			var wave_upper := (out * 0.8 + Vector3.UP * 0.1 + _forward * 0.25).normalized()

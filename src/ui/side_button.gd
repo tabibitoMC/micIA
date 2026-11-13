@@ -56,6 +56,15 @@ func _ready() -> void:
 	add_child(label)
 
 
+## Pequeño salto para llamar la atención (cuando ella lo señala).
+func pulse() -> void:
+	_tile.pivot_offset = _tile.size / 2.0
+	var tween := create_tween()
+	for i in 3:
+		tween.tween_property(_tile, "scale", Vector2(1.25, 1.25), 0.15)
+		tween.tween_property(_tile, "scale", Vector2.ONE, 0.15)
+
+
 func set_disabled(disabled: bool) -> void:
 	_tile.disabled = disabled
 	modulate.a = 0.5 if disabled else 1.0

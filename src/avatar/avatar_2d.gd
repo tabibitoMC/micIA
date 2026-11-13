@@ -29,6 +29,9 @@ var _blink := 0.0
 var _blink_timer := 0.0
 var _idle_time := 0.0
 var _action_tween: Tween
+var _turned_away := false
+## Desplazamiento horizontal al "caminar" por la pantalla.
+var walk_offset := 0.0
 
 
 func _ready() -> void:
@@ -91,6 +94,31 @@ func play_action(action: String) -> void:
 			_action_tween.kill()
 
 
+func walk_to_screen_x(x: float) -> void:
+	var target := x - (global_position.x + size.x / 2.0)
+	var tween := create_tween()
+	tween.tween_property(self, "walk_offset", target, absf(target - walk_offset) / 300.0 + 0.1)
+	await tween.finished
+
+
+func go_home() -> void:
+	await walk_to_screen_x(global_position.x + size.x / 2.0)
+
+
+func point_at_screen(point: Vector2, seconds := 1.0) -> void:
+	var to_left := point.x < global_position.x + size.x / 2.0 + walk_offset
+	var tween := create_tween()
+	tween.tween_property(self, "anim_tilt", -0.15 if to_left else 0.15, 0.25)
+	tween.tween_interval(seconds)
+	tween.tween_property(self, "anim_tilt", 0.0, 0.25)
+	await tween.finished
+
+
+func set_turned_away(away: bool) -> void:
+	_turned_away = away
+	queue_redraw()
+
+
 func _process(delta: float) -> void:
 	_idle_time += delta
 	# Parpadeo
@@ -115,8 +143,15 @@ func _draw() -> void:
 	if radius <= 1.0:
 		return
 	var breathing := sin(_idle_time * 2.0) * radius * 0.012
-	var center := size / 2.0 + anim_offset + Vector2(0, breathing)
+	var center := size / 2.0 + anim_offset + Vector2(walk_offset, breathing)
 	draw_set_transform(center, anim_tilt, Vector2.ONE)
+
+	if _turned_away:
+		# De espaldas: solo se ve el pelo.
+		_draw_hair_back(radius)
+		draw_circle(Vector2(0, -radius * 0.05), radius * 1.05, HAIR)
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		return
 
 	_draw_hair_back(radius)
 	draw_circle(Vector2.ZERO, radius, SKIN)

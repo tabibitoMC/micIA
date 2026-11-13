@@ -21,6 +21,8 @@ var _voice: Voice
 var _avatar: Avatar
 var _avatar_is_3d := false
 var _avatar_layer: Control
+var _room: RoomBackground
+var _interface_actions: InterfaceActions
 var _chat: ChatView
 var _name_pill: MoodBar
 var _status_label: Label
@@ -44,6 +46,7 @@ func _ready() -> void:
 	_build_overlay()
 	_build_services()
 	_rebuild_avatar()
+	_interface_actions.avatar = _avatar
 	_connect_signals()
 	_load_history_into_chat()
 	_refresh_header()
@@ -71,9 +74,10 @@ func _notification(what: int) -> void:
 # --- Construcción de la interfaz -------------------------------------------
 
 func _build_layers() -> void:
-	var room := RoomBackground.new()
-	room.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	add_child(room)
+	_room = RoomBackground.new()
+	_room.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_room.theme_id = str(Settings.get_value("room_theme"))
+	add_child(_room)
 
 	_avatar_layer = Control.new()
 	_avatar_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -207,6 +211,12 @@ func _build_services() -> void:
 	add_child(_image_generator)
 	_photo_picker = PhotoPicker.new()
 	add_child(_photo_picker)
+	_interface_actions = InterfaceActions.new()
+	_interface_actions.room = _room
+	_interface_actions.gift_button = _gift_button
+	_interface_actions.is_occupied = func() -> bool:
+		return Mood.blocked or _brain.is_thinking() or _input.has_focus() or _overlay.visible
+	add_child(_interface_actions)
 	_voice = Voice.new()
 	add_child(_voice)
 
@@ -241,6 +251,9 @@ func _rebuild_avatar() -> void:
 		_avatar_is_3d = false
 
 	_avatar.touched.connect(_on_avatar_touched)
+	_avatar.set_turned_away(Mood.blocked)
+	if _interface_actions:
+		_interface_actions.avatar = _avatar
 
 
 func _connect_signals() -> void:
@@ -265,6 +278,7 @@ func _connect_signals() -> void:
 
 	Mood.blocked_changed.connect(func(is_blocked: bool): _announce_block.call_deferred(is_blocked))
 	Settings.changed.connect(_on_settings_changed)
+	_room.room_theme_changed.connect(_on_room_theme_changed)
 	Memory.cleared.connect(_chat.clear)
 
 	_block_card.settings_requested.connect(_open_settings)
@@ -317,6 +331,10 @@ func _on_reply(reply: AIReply) -> void:
 	_avatar.set_emotion(reply.emotion)
 	_avatar.play_action(reply.action)
 	_voice.speak(reply.text)
+	if reply.interface_action != "ninguna":
+		# Primero el gesto, luego se mueve por la pantalla.
+		await get_tree().create_timer(0.8).timeout
+		_interface_actions.perform(reply.interface_action)
 
 
 func _on_brain_failed(message: String) -> void:
@@ -354,6 +372,7 @@ func _on_avatar_touched() -> void:
 
 func _announce_block(is_blocked: bool) -> void:
 	var companion := str(Settings.get_value("companion_name"))
+	_avatar.set_turned_away(is_blocked)
 	if is_blocked:
 		_chat.add_message(ChatView.Sender.EVENT, "%s te bloqueó." % companion)
 	else:
@@ -364,9 +383,17 @@ func _announce_block(is_blocked: bool) -> void:
 # --- Estado de la interfaz -------------------------------------------------
 
 func _on_settings_changed() -> void:
+	_room.set_room_theme(str(Settings.get_value("room_theme")))
 	_rebuild_avatar()
 	_refresh_header()
 	_refresh_input_state()
+
+
+## Si ella cambió el fondo, se guarda para la próxima vez.
+func _on_room_theme_changed(theme_id: String) -> void:
+	if str(Settings.get_value("room_theme")) != theme_id:
+		Settings.set_value("room_theme", theme_id)
+		Settings.save()
 
 
 func _refresh_header() -> void:

@@ -13,6 +13,8 @@ extends RefCounted
 const EMOTIONS := ["neutral", "feliz", "triste", "enojada", "sorprendida", "avergonzada", "pensativa"]
 const ACTIONS := ["ninguna", "saludar", "asentir", "negar", "cruzar_brazos", "saltar", "mirar_otro_lado"]
 const TREATMENTS := ["bueno", "neutral", "malo", "abusivo"]
+## Cosas que ella puede hacer con la interfaz (ver InterfaceActions).
+const INTERFACE_ACTIONS := ["ninguna", "pedir_regalo", "fondo_dia", "fondo_atardecer", "fondo_noche", "pasear"]
 
 ## Límites de cuánto puede cambiar el ánimo en un solo mensaje.
 const ANGER_DELTA_RANGE := Vector2i(-15, 25)
@@ -27,6 +29,7 @@ var treatment := "neutral"
 var remember := ""
 ## Si no está vacío, ella quiere mandarte una imagen: descripción en inglés.
 var image_prompt := ""
+var interface_action := "ninguna"
 
 
 ## Convierte el texto devuelto por la IA en un AIReply. Devuelve null si no
@@ -49,6 +52,7 @@ static func from_text(raw: String) -> AIReply:
 	reply.affection_delta = _clamp_int(data.get("afecto", 0), AFFECTION_DELTA_RANGE)
 	var remember_value: Variant = data.get("recordar", "")
 	reply.remember = str(remember_value).strip_edges() if remember_value != null else ""
+	reply.interface_action = _pick(data.get("interfaz"), INTERFACE_ACTIONS, "ninguna")
 	var image_value: Variant = data.get("imagen", "")
 	reply.image_prompt = str(image_value).strip_edges() if image_value != null else ""
 	return reply
@@ -66,6 +70,7 @@ func to_json_string() -> String:
 		"trato": treatment,
 		"recordar": remember,
 		"imagen": image_prompt,
+		"interfaz": interface_action,
 	})
 
 

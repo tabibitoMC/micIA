@@ -11,6 +11,7 @@ var _companion_name: LineEdit
 var _user_name: LineEdit
 var _personality: OptionButton
 var _appearance: LineEdit
+var _room_theme: OptionButton
 var _voice_enabled: CheckButton
 var _avatar_3d: CheckButton
 var _voice_rate: HSlider
@@ -62,6 +63,12 @@ func _ready() -> void:
 	_appearance = LineEdit.new()
 	form.add_child(_appearance)
 
+	_add_label(form, "Fondo de la habitación")
+	_room_theme = OptionButton.new()
+	for id in RoomBackground.theme_ids():
+		_room_theme.add_item(RoomBackground.THEMES[id]["label"])
+	form.add_child(_room_theme)
+
 	_avatar_3d = CheckButton.new()
 	_avatar_3d.text = "Avatar 3D (apágalo si va lento)"
 	form.add_child(_avatar_3d)
@@ -107,6 +114,7 @@ func load_values() -> void:
 	var ids := Personalities.ids()
 	_personality.select(maxi(0, ids.find(str(Settings.get_value("personality")))))
 	_appearance.text = str(Settings.get_value("appearance"))
+	_room_theme.select(maxi(0, RoomBackground.theme_ids().find(str(Settings.get_value("room_theme")))))
 	_avatar_3d.button_pressed = bool(Settings.get_value("avatar_3d"))
 	_voice_enabled.button_pressed = bool(Settings.get_value("voice_enabled"))
 	_voice_rate.value = float(Settings.get_value("voice_rate"))
@@ -127,6 +135,7 @@ func _on_save_pressed() -> void:
 	Settings.set_value("personality", Personalities.ids()[_personality.selected])
 	if not _appearance.text.strip_edges().is_empty():
 		Settings.set_value("appearance", _appearance.text.strip_edges())
+	Settings.set_value("room_theme", RoomBackground.theme_ids()[_room_theme.selected])
 	Settings.set_value("avatar_3d", _avatar_3d.button_pressed)
 	Settings.set_value("voice_enabled", _voice_enabled.button_pressed)
 	Settings.set_value("voice_rate", _voice_rate.value)

@@ -18,6 +18,8 @@ static func build_system_prompt(context: Dictionary) -> String:
 	parts.append("PERSONALIDAD: " + str(personality["prompt"]))
 	parts.append("TU APARIENCIA (en inglés, úsala en tus selfies): " + str(context["appearance"]))
 	parts.append("ESTADO ACTUAL: " + str(context["mood_description"]))
+	if context.has("room_theme"):
+		parts.append("TU HABITACIÓN AHORA: ambiente de " + str(context["room_theme"]) + ".")
 	if not str(context["treatment_summary"]).is_empty():
 		parts.append("CÓMO TE HA TRATADO ÚLTIMAMENTE: " + str(context["treatment_summary"]))
 
@@ -42,7 +44,7 @@ static func _rules() -> String:
 
 static func _format_instructions() -> String:
 	return """FORMATO: responde SIEMPRE con un único objeto JSON y nada más:
-{"texto": "...", "emocion": "...", "accion": "...", "enojo": 0, "afecto": 0, "trato": "...", "recordar": "", "imagen": ""}
+{"texto": "...", "emocion": "...", "accion": "...", "enojo": 0, "afecto": 0, "trato": "...", "recordar": "", "imagen": "", "interfaz": "ninguna"}
 - texto: lo que dices.
 - emocion: una de %s.
 - accion: una de %s (usa "ninguna" la mayoría de las veces).
@@ -50,10 +52,12 @@ static func _format_instructions() -> String:
 - afecto: entero de %d a %d. Cuánto cambia tu cariño por él.
 - trato: cómo te trató en su último mensaje: una de %s.
 - recordar: un dato nuevo e importante sobre él para recordar a largo plazo (gustos, nombres, planes), o "" si no hay nada nuevo.
+- interfaz: algo que haces moviéndote por la app: una de %s. "pedir_regalo" = caminas hasta el botón de regalos y lo señalas (cuando quieres que te dé un regalo); "fondo_dia"/"fondo_atardecer"/"fondo_noche" = caminas a la ventana y cambias la habitación (si él te lo pide o si tiene sentido, p. ej. dices que ya es de noche); "pasear" = caminas un poco. Usa "ninguna" casi siempre.
 - imagen: "" casi siempre. Si quieres mandarle una imagen, escribe aquí una descripción detallada EN INGLÉS de la imagen (estilo anime). Si es una foto tuya, incluye tu apariencia completa.""" % [
 		", ".join(PackedStringArray(AIReply.EMOTIONS)),
 		", ".join(PackedStringArray(AIReply.ACTIONS)),
 		AIReply.ANGER_DELTA_RANGE.x, AIReply.ANGER_DELTA_RANGE.y,
 		AIReply.AFFECTION_DELTA_RANGE.x, AIReply.AFFECTION_DELTA_RANGE.y,
 		", ".join(PackedStringArray(AIReply.TREATMENTS)),
+		", ".join(PackedStringArray(AIReply.INTERFACE_ACTIONS)),
 	]

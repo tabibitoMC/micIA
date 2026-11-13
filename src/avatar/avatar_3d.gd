@@ -35,6 +35,16 @@ var _blink := 0.0
 var _action_tween: Tween
 var _jump_offset := 0.0
 var _model_base_y := 0.0
+var _home_x := 0.0
+var _base_yaw := 0.0
+## Giro extra sobre el eje vertical: hacia dónde camina o darte la espalda.
+var _facing_offset := 0.0
+var _turned_away := false
+
+## Velocidad al caminar (metros por segundo en el mundo 3D).
+const WALK_SPEED := 0.55
+## Cuánto gira al caminar de lado (no 90° para que se le siga viendo la cara).
+const WALK_TURN := 1.1
 
 
 func _ready() -> void:
@@ -69,6 +79,8 @@ func load_model(path: String) -> bool:
 	if _poser.forward() == Vector3.FORWARD:
 		_model.rotate_y(PI)
 	_model_base_y = _model.position.y
+	_home_x = _model.position.x
+	_base_yaw = _model.rotation.y
 	_frame_camera.call_deferred()
 	return true
 
@@ -129,11 +141,76 @@ func play_action(action: String) -> void:
 			_action_tween.kill()
 
 
+func walk_to_screen_x(x: float) -> void:
+	if _poser == null:
+		return
+	await _walk_to_world_x(_screen_to_world(Vector2(x, global_position.y + size.y * 0.6)).x)
+
+
+func go_home() -> void:
+	if _poser == null:
+		return
+	await _walk_to_world_x(_home_x)
+
+
+func point_at_screen(point: Vector2, seconds := 1.0) -> void:
+	if _poser == null:
+		return
+	var target := _screen_to_world(point)
+	# Mirando a la cámara, su mano derecha queda a la izquierda de la pantalla.
+	var side := "Right" if target.x < _model.global_position.x else "Left"
+	var shoulder := _poser.shoulder_global_position(side)
+	_poser.point_side = side
+	_poser.point_direction = _poser.world_to_skeleton_direction(target - shoulder)
+	var tween := create_tween()
+	tween.tween_property(_poser, "point_amount", 1.0, 0.35).set_trans(Tween.TRANS_SINE)
+	tween.tween_interval(seconds)
+	tween.tween_property(_poser, "point_amount", 0.0, 0.35).set_trans(Tween.TRANS_SINE)
+	await tween.finished
+
+
+func set_turned_away(away: bool) -> void:
+	if away == _turned_away:
+		return
+	_turned_away = away
+	var tween := create_tween()
+	tween.tween_property(self, "_facing_offset", PI if away else 0.0, 0.8).set_trans(Tween.TRANS_SINE)
+
+
+func _walk_to_world_x(target_x: float) -> void:
+	var distance := target_x - _model.position.x
+	if absf(distance) < 0.03:
+		return
+	var direction := signf(distance)
+	var turn := create_tween()
+	turn.tween_property(self, "_facing_offset", WALK_TURN * direction, 0.25)
+	turn.parallel().tween_property(_poser, "walk_amount", 1.0, 0.25)
+	await turn.finished
+
+	var walk := create_tween()
+	walk.tween_property(_model, "position:x", target_x, absf(distance) / WALK_SPEED)
+	await walk.finished
+
+	var stop := create_tween()
+	stop.tween_property(self, "_facing_offset", PI if _turned_away else 0.0, 0.3)
+	stop.parallel().tween_property(_poser, "walk_amount", 0.0, 0.3)
+	await stop.finished
+
+
+## Punto de la pantalla -> punto del mundo 3D a la profundidad del modelo.
+func _screen_to_world(screen_point: Vector2) -> Vector3:
+	var local := screen_point - global_position
+	var viewport_point := local * Vector2(_viewport.size) / size
+	var depth := absf(_camera.global_position.z - _model.global_position.z)
+	return _camera.project_position(viewport_point, depth)
+
+
 func _process(delta: float) -> void:
 	if _poser == null or _mixer == null:
 		return
 	_poser.update(delta)
-	_model.position.y = _model_base_y + _jump_offset
+	_model.position.y = _model_base_y + _jump_offset + _poser.walk_bounce()
+	_model.rotation.y = _base_yaw + _facing_offset
 	_update_face(delta)
 
 
@@ -183,6 +260,7 @@ func _reset_action_params() -> void:
 	_poser.wave = 0.0
 	_poser.wave_swing = 0.0
 	_poser.arms_crossed = 0.0
+	_poser.point_amount = 0.0
 	_jump_offset = 0.0
 
 

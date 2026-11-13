@@ -12,7 +12,7 @@ Proyecto personal de una asistente / amiga con IA. No lo voy a comercializar ni 
 |---|---|---|
 | 1 | Chat con Mistral, respuestas JSON (texto + emoción + acción), memoria, personalidades, enojo/afecto, bloqueo, regalos, voz (TTS del sistema) | ✅ |
 | 2 | Avatar 3D (VRM) con expresiones, parpadeo, boca al hablar y gestos; interfaz pastel | ✅ (cara 2D como respaldo) |
-| 3 | Animaciones, moverse por la interfaz y tocar botones | ⏳ |
+| 3 | Camina por la pantalla, señala botones, cambia el fondo (día/atardecer/noche), pasea sola y te da la espalda al bloquearte | ✅ |
 | 4 | Enviarle fotos (las ve con visión de Mistral) y que ella genere imágenes/selfies | ✅ |
 | Futuro | Personalidad adaptativa según cómo la tratas | base lista (`Mood.recent_treatment`) |
 
@@ -21,6 +21,7 @@ Proyecto personal de una asistente / amiga con IA. No lo voy a comercializar ni 
 ```
 src/
   app/      main.tscn + main.gd   → pantalla principal; solo conecta las piezas
+            interface_actions.gd  → lo que ella hace con la interfaz (caminar, señalar, cambiar fondo)
   core/     settings.gd (autoload Settings), json_store.gd, image_utils.gd
   ai/       brain.gd              → arma la conversación y llama a Mistral
             mistral_api.gd        → capa HTTP común (reintentos, errores)

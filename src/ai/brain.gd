@@ -84,6 +84,7 @@ func _system_prompt() -> String:
 		"user_name": Settings.user_display_name(),
 		"personality": Personalities.fetch(str(Settings.get_value("personality"))),
 		"appearance": str(Settings.get_value("appearance")),
+		"room_theme": RoomBackground.THEMES.get(str(Settings.get_value("room_theme")), {"label": "Día"})["label"],
 		"mood_description": Mood.describe_for_prompt(),
 		"treatment_summary": Mood.treatment_summary(),
 		"facts": Memory.facts,

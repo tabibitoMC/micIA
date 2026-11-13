@@ -18,6 +18,7 @@ const DEFAULTS := {
 	"user_name": "",
 	"personality": "tsundere",
 	"avatar_3d": true,
+	"room_theme": "dia",
 	"voice_enabled": true,
 	"voice_rate": 1.0,
 	"voice_pitch": 1.2,

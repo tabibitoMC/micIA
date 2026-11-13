@@ -24,6 +24,30 @@ func set_talking(_talking: bool) -> void:
 	pass
 
 
+# --- Movimiento por la pantalla (fase 3) ------------------------------------
+# Son asíncronas: se pueden usar con `await` para esperar a que terminen.
+# Las coordenadas son globales de la interfaz (las de Control.global_position).
+
+## Camina hasta que su cuerpo quede en la X de pantalla indicada.
+func walk_to_screen_x(_x: float) -> void:
+	pass
+
+
+## Señala un punto de la pantalla durante `seconds` segundos.
+func point_at_screen(_point: Vector2, _seconds := 1.0) -> void:
+	pass
+
+
+## Vuelve a su lugar de siempre (el centro).
+func go_home() -> void:
+	pass
+
+
+## Darte la espalda (por ejemplo, cuando te bloquea).
+func set_turned_away(_away: bool) -> void:
+	pass
+
+
 func _gui_input(event: InputEvent) -> void:
 	# En Android los toques llegan también como clic de mouse (emulación por
 	# defecto de Godot), así que basta con escuchar el clic.
