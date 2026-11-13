@@ -10,6 +10,10 @@ extends Node
 signal completed(content: String)
 signal failed(message: String)
 
+## Si el modelo elegido está saturado (429), se prueba con estos en orden.
+## En el plan gratuito los límites son por modelo, así que otro suele responder.
+const FALLBACK_MODELS := ["mistral-small-latest", "mistral-medium-latest", "mistral-large-latest", "ministral-8b-latest"]
+
 var _api: MistralApi
 var _busy := false
 
@@ -39,7 +43,12 @@ func chat(messages: Array, api_key: String, model: String, json_mode := true, te
 		payload["response_format"] = {"type": "json_object"}
 
 	_busy = true
-	var response: Dictionary = await _api.post_json("/chat/completions", payload, api_key)
+	var response: Dictionary = {}
+	for candidate in _models_to_try(model, messages):
+		payload["model"] = candidate
+		response = await _api.post_json("/chat/completions", payload, api_key)
+		if response["code"] != 429:
+			break
 	_busy = false
 	if not response["ok"]:
 		failed.emit(response["error"])
@@ -49,6 +58,20 @@ func chat(messages: Array, api_key: String, model: String, json_mode := true, te
 		failed.emit("Mistral devolvió una respuesta vacía.")
 		return
 	completed.emit(content)
+
+
+## El modelo elegido primero y luego los de respaldo. Si el mensaje lleva una
+## imagen, se omiten los que no tienen visión.
+static func _models_to_try(preferred: String, messages: Array) -> Array:
+	var has_image := JSON.stringify(messages).contains("\"image_url\"")
+	var models: Array = [preferred]
+	for m in FALLBACK_MODELS:
+		if m in models:
+			continue
+		if has_image and m == "ministral-8b-latest":
+			continue
+		models.append(m)
+	return models
 
 
 ## La respuesta normal es choices[0].message.content (String). Algunos modelos
