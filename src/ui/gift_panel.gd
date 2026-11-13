@@ -7,7 +7,7 @@ signal closed
 
 
 func _ready() -> void:
-	add_theme_stylebox_override("panel", UIStyle.panel(UIStyle.SURFACE, 14, 16))
+	add_theme_stylebox_override("panel", UIStyle.card(UIStyle.CREAM))
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 10)
 	add_child(box)
@@ -15,6 +15,7 @@ func _ready() -> void:
 	var title := Label.new()
 	title.text = "Dale un regalo"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", UIStyle.FONT_SIZE_TITLE)
 	box.add_child(title)
 
 	for gift_id in Gifts.ids():
@@ -26,7 +27,7 @@ func _ready() -> void:
 
 	var close := Button.new()
 	close.text = "Cerrar"
-	close.flat = true
+	UIStyle.style_button(close, UIStyle.ButtonKind.FLAT)
 	close.pressed.connect(func(): closed.emit())
 	box.add_child(close)
 

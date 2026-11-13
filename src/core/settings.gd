@@ -17,6 +17,7 @@ const DEFAULTS := {
 	"companion_name": "Mia",
 	"user_name": "",
 	"personality": "tsundere",
+	"avatar_3d": true,
 	"voice_enabled": true,
 	"voice_rate": 1.0,
 	"voice_pitch": 1.2,

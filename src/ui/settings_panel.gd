@@ -11,6 +11,7 @@ var _companion_name: LineEdit
 var _user_name: LineEdit
 var _personality: OptionButton
 var _voice_enabled: CheckButton
+var _avatar_3d: CheckButton
 var _voice_rate: HSlider
 var _voice_pitch: HSlider
 var _ui_scale: HSlider
@@ -19,7 +20,7 @@ var _clear_armed := false
 
 
 func _ready() -> void:
-	add_theme_stylebox_override("panel", UIStyle.panel(UIStyle.SURFACE, 14, 16))
+	add_theme_stylebox_override("panel", UIStyle.card(UIStyle.CREAM))
 	var scroll := ScrollContainer.new()
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	add_child(scroll)
@@ -56,6 +57,10 @@ func _ready() -> void:
 		_personality.add_item(Personalities.fetch(id)["label"])
 	form.add_child(_personality)
 
+	_avatar_3d = CheckButton.new()
+	_avatar_3d.text = "Avatar 3D (apágalo si va lento)"
+	form.add_child(_avatar_3d)
+
 	_voice_enabled = CheckButton.new()
 	_voice_enabled.text = "Voz activada"
 	form.add_child(_voice_enabled)
@@ -66,6 +71,7 @@ func _ready() -> void:
 
 	_clear_button = Button.new()
 	_clear_button.text = "Borrar memoria y reiniciar ánimo"
+	UIStyle.style_button(_clear_button, UIStyle.ButtonKind.SECONDARY)
 	_clear_button.pressed.connect(_on_clear_pressed)
 	form.add_child(_clear_button)
 
@@ -74,6 +80,7 @@ func _ready() -> void:
 	form.add_child(buttons)
 	var cancel := Button.new()
 	cancel.text = "Cancelar"
+	UIStyle.style_button(cancel, UIStyle.ButtonKind.SECONDARY)
 	cancel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	cancel.pressed.connect(func(): closed.emit())
 	buttons.add_child(cancel)
@@ -94,6 +101,7 @@ func load_values() -> void:
 	_user_name.text = str(Settings.get_value("user_name"))
 	var ids := Personalities.ids()
 	_personality.select(maxi(0, ids.find(str(Settings.get_value("personality")))))
+	_avatar_3d.button_pressed = bool(Settings.get_value("avatar_3d"))
 	_voice_enabled.button_pressed = bool(Settings.get_value("voice_enabled"))
 	_voice_rate.value = float(Settings.get_value("voice_rate"))
 	_voice_pitch.value = float(Settings.get_value("voice_pitch"))
@@ -107,6 +115,7 @@ func _on_save_pressed() -> void:
 	Settings.set_value("companion_name", name_text if not name_text.is_empty() else "Mia")
 	Settings.set_value("user_name", _user_name.text.strip_edges())
 	Settings.set_value("personality", Personalities.ids()[_personality.selected])
+	Settings.set_value("avatar_3d", _avatar_3d.button_pressed)
 	Settings.set_value("voice_enabled", _voice_enabled.button_pressed)
 	Settings.set_value("voice_rate", _voice_rate.value)
 	Settings.set_value("voice_pitch", _voice_pitch.value)
@@ -132,21 +141,21 @@ func _add_title(parent: Control, text: String) -> void:
 	var label := Label.new()
 	label.text = text
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	label.add_theme_font_size_override("font_size", UIStyle.FONT_SIZE + 4)
+	label.add_theme_font_size_override("font_size", UIStyle.FONT_SIZE_TITLE)
 	parent.add_child(label)
 
 
 func _add_label(parent: Control, text: String) -> void:
 	var label := Label.new()
 	label.text = text
-	label.add_theme_color_override("font_color", UIStyle.TEXT_DIM)
+	label.add_theme_color_override("font_color", UIStyle.PLUM_DIM)
 	label.add_theme_font_size_override("font_size", UIStyle.FONT_SIZE_SMALL)
 	parent.add_child(label)
 
 
 func _add_slider(parent: Control, text: String, min_value: float, max_value: float, step: float) -> HSlider:
 	var label := Label.new()
-	label.add_theme_color_override("font_color", UIStyle.TEXT_DIM)
+	label.add_theme_color_override("font_color", UIStyle.PLUM_DIM)
 	label.add_theme_font_size_override("font_size", UIStyle.FONT_SIZE_SMALL)
 	parent.add_child(label)
 	var slider := HSlider.new()

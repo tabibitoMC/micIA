@@ -13,7 +13,7 @@ signal changed
 signal blocked_changed(is_blocked: bool)
 
 const SAVE_PATH := "user://mood.json"
-const ANGER_DECAY_PER_MINUTE := 0.6
+const ANGER_DECAY_PER_MINUTE := 1.5
 ## Para desbloquear, el enojo debe bajar este margen por debajo del umbral
 ## (evita que se bloquee y desbloquee a cada rato).
 const UNBLOCK_MARGIN := 25.0
@@ -21,7 +21,7 @@ const RECENT_TREATMENT_SIZE := 30
 ## Regalos seguidos dentro de este tiempo valen menos (no se compra tan fácil).
 const GIFT_SPAM_SECONDS := 90.0
 const GIFT_SPAM_MULTIPLIER := 0.35
-const TICK_SECONDS := 30.0
+const TICK_SECONDS := 10.0
 
 var anger := 0.0
 var affection := 50.0
@@ -68,6 +68,16 @@ func give_gift(gift_id: String) -> float:
 
 func block_threshold() -> float:
 	return float(_personality()["block_threshold"])
+
+
+## Segundos que faltan para que se le pase el enojo y te desbloquee
+## (0 si no estás bloqueado).
+func seconds_until_unblock() -> float:
+	if not blocked:
+		return 0.0
+	var excess := anger - (block_threshold() - UNBLOCK_MARGIN)
+	var elapsed := (Time.get_unix_time_from_system() - _last_update_unix) / 60.0
+	return maxf(0.0, (excess / ANGER_DECAY_PER_MINUTE - elapsed) * 60.0)
 
 
 func anger_label() -> String:
