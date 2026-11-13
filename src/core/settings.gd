@@ -26,6 +26,10 @@ const DEFAULTS := {
 	"ui_scale": 1.0,
 	## Contenido +18: solo afecta al personaje adulto. Apagado por defecto.
 	"adult_content": false,
+	## Imágenes gratis: Cloudflare Workers AI (opcional) y AI Horde.
+	"cloudflare_account_id": "",
+	"cloudflare_api_token": "",
+	"horde_api_key": "",
 	## Cómo es ella físicamente (se usa en sus selfies y para que se describa bien).
 	"appearance": "adult anime woman, 25 years old, tall, short silver-white hair, heterochromia (blue and green eyes), dark navy and cyan bodysuit with glowing cyan lines, long gloves, thigh-high boots",
 }

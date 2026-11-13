@@ -13,6 +13,9 @@ var _personality: OptionButton
 var _appearance: LineEdit
 var _character: OptionButton
 var _adult: CheckButton
+var _cf_account: LineEdit
+var _cf_token: LineEdit
+var _horde_key: LineEdit
 var _room_theme: OptionButton
 var _voice_enabled: CheckButton
 var _avatar_3d: CheckButton
@@ -100,6 +103,19 @@ func _ready() -> void:
 	_voice_pitch = _add_slider(form, "Tono de voz", 0.5, 2.0, 0.05)
 	_ui_scale = _add_slider(form, "Tamaño de la interfaz", 0.5, 2.5, 0.05)
 
+	_add_title_small(form, "Imágenes gratis")
+	_add_label(form, "Cloudflare Account ID (opcional)")
+	_cf_account = LineEdit.new()
+	form.add_child(_cf_account)
+	_add_label(form, "Cloudflare API token (Workers AI)")
+	_cf_token = LineEdit.new()
+	_cf_token.secret = true
+	form.add_child(_cf_token)
+	_add_label(form, "AI Horde API key (vacío = anónimo)")
+	_horde_key = LineEdit.new()
+	_horde_key.secret = true
+	form.add_child(_horde_key)
+
 	_clear_button = Button.new()
 	_clear_button.text = "Borrar memoria y reiniciar ánimo"
 	UIStyle.style_button(_clear_button, UIStyle.ButtonKind.SECONDARY)
@@ -135,6 +151,9 @@ func load_values() -> void:
 	_appearance.text = str(Settings.get_value("appearance"))
 	_character.select(maxi(0, Characters.ids().find(str(Settings.get_value("character")))))
 	_adult.button_pressed = bool(Settings.get_value("adult_content"))
+	_cf_account.text = str(Settings.get_value("cloudflare_account_id"))
+	_cf_token.text = str(Settings.get_value("cloudflare_api_token"))
+	_horde_key.text = str(Settings.get_value("horde_api_key"))
 	_room_theme.select(maxi(0, RoomBackground.theme_ids().find(str(Settings.get_value("room_theme")))))
 	_avatar_3d.button_pressed = bool(Settings.get_value("avatar_3d"))
 	_voice_enabled.button_pressed = bool(Settings.get_value("voice_enabled"))
@@ -155,6 +174,9 @@ func _on_save_pressed() -> void:
 	Settings.set_value("room_theme", RoomBackground.theme_ids()[_room_theme.selected])
 	Settings.set_value("character", Characters.ids()[_character.selected])
 	Settings.set_value("adult_content", _adult.button_pressed)
+	Settings.set_value("cloudflare_account_id", _cf_account.text.strip_edges())
+	Settings.set_value("cloudflare_api_token", _cf_token.text.strip_edges())
+	Settings.set_value("horde_api_key", _horde_key.text.strip_edges())
 	Settings.set_value("avatar_3d", _avatar_3d.button_pressed)
 	Settings.set_value("voice_enabled", _voice_enabled.button_pressed)
 	Settings.set_value("voice_rate", _voice_rate.value)
@@ -190,6 +212,13 @@ func _add_title(parent: Control, text: String) -> void:
 	label.text = text
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.add_theme_font_size_override("font_size", UIStyle.FONT_SIZE_TITLE)
+	parent.add_child(label)
+
+
+func _add_title_small(parent: Control, text: String) -> void:
+	var label := Label.new()
+	label.text = text
+	label.add_theme_font_size_override("font_size", UIStyle.FONT_SIZE)
 	parent.add_child(label)
 
 

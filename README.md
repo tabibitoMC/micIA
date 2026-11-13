@@ -25,12 +25,12 @@ src/
   app/      main.tscn + main.gd   → pantalla principal; solo conecta las piezas
             interface_actions.gd  → lo que ella hace con la interfaz (caminar, señalar, cambiar fondo)
             touch_interactions.gd → caricias y golpes al tocarla
-  core/     settings.gd (autoload Settings), json_store.gd, image_utils.gd
+  core/     settings.gd (autoload Settings), json_store.gd, image_utils.gd, web_request.gd
   characters/ characters.gd       → catálogo de personajes (modelo, adulto o no, apariencia)
   ai/       brain.gd              → arma la conversación y llama a Mistral
             mistral_api.gd        → capa HTTP común (reintentos, errores)
             mistral_client.gd     → chat (/v1/chat/completions, con visión)
-            image_generator.gd    → imágenes (Agents API + image_generation)
+            image/                → generador de imágenes con proveedores (Cloudflare, AI Horde, Mistral)
             ai_reply.gd           → valida el JSON que devuelve la IA
             prompt_builder.gd     → construye el prompt de sistema
             personalities.gd      → catálogo de personalidades
@@ -59,7 +59,11 @@ Las reglas que sigue el código:
 ## Fotos e imágenes
 
 - **Mandarle fotos:** botón "Foto". Lo que tengas escrito en la caja se envía como pie de foto. Ella la ve con un modelo con visión (`mistral-small-latest` la tiene).
-- **Imágenes de ella:** cuando le pides un dibujo o una selfie, la IA llena el campo `imagen` y la app la genera con la herramienta `image_generation` de Mistral (agente creado automáticamente). Para que sus selfies se parezcan a ella, ajusta **"Su apariencia"** en Ajustes. No está confirmado que esta herramienta funcione en el plan gratuito; si no, verás el error en el chat.
+- **Imágenes de ella:** cuando le pides un dibujo o una selfie, la IA llena el campo `imagen` y la app la genera probando en orden:
+  1. **Cloudflare Workers AI** (FLUX Schnell, ~170 imágenes gratis al día). Pon tu Account ID y un API token en Ajustes.
+  2. **AI Horde** (gratis, funciona sin cuenta; con cuenta propia va más rápido).
+  3. **Mistral** (si tu plan lo incluye).
+  Para que sus selfies se parezcan a ella, ajusta **"Su apariencia"** en Ajustes.
 
 ## Relación y confianza
 
