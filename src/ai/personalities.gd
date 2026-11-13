@@ -8,6 +8,9 @@ extends RefCounted
 ##  - block_threshold: nivel de enojo (0-100) a partir del cual te bloquea.
 ##  - anger_scale / affection_scale: multiplicadores de los cambios de ánimo
 ##    que propone la IA (p. ej. una tsundere se enoja más rápido).
+##  - offense_state / offense_anger / offense_text: cómo reacciona si él se
+##    pasa de su límite de confianza (estado temporal, enojo extra, descripción).
+##  - resentment_style: cómo cambia su actitud con mucho rencor.
 ##
 ## Para agregar una personalidad nueva basta con añadir una entrada aquí.
 
@@ -20,6 +23,10 @@ const DATA := {
 		"block_threshold": 75.0,
 		"anger_scale": 1.2,
 		"affection_scale": 0.8,
+		"offense_state": "enojada",
+		"offense_anger": 40.0,
+		"offense_text": "lo insultas (sin groserías extremas), te enojas mucho y lo bloqueas.",
+		"resentment_style": "te vuelves hostil y sarcástica con él.",
 	},
 	"yandere": {
 		"label": "Yandere",
@@ -27,6 +34,10 @@ const DATA := {
 		"block_threshold": 85.0,
 		"anger_scale": 1.0,
 		"affection_scale": 1.3,
+		"offense_state": "enojada",
+		"offense_anger": 45.0,
+		"offense_text": "te pones furiosa, lo golpeas (accion \"golpear\"), le reclamas de forma dramática e inquietante y lo bloqueas.",
+		"resentment_style": "te vuelves obsesiva, celosa y vengativa.",
 	},
 	"kuudere": {
 		"label": "Kuudere",
@@ -34,6 +45,10 @@ const DATA := {
 		"block_threshold": 80.0,
 		"anger_scale": 0.7,
 		"affection_scale": 0.7,
+		"offense_state": "distante",
+		"offense_anger": 12.0,
+		"offense_text": "te vuelves gélida, lo ignoras y respondes con indiferencia.",
+		"resentment_style": "te vuelves fría y desconfiada.",
 	},
 	"dandere": {
 		"label": "Dandere",
@@ -41,6 +56,10 @@ const DATA := {
 		"block_threshold": 70.0,
 		"anger_scale": 0.9,
 		"affection_scale": 1.1,
+		"offense_state": "dolida",
+		"offense_anger": 8.0,
+		"offense_text": "te ofendes, lloras (accion \"llorar\") y te quedas en silencio respondiendo casi solo \"...\".",
+		"resentment_style": "te vuelves sumisa y temerosa, evitas hablar con él.",
 	},
 	"deredere": {
 		"label": "Deredere",
@@ -48,6 +67,10 @@ const DATA := {
 		"block_threshold": 90.0,
 		"anger_scale": 0.6,
 		"affection_scale": 1.2,
+		"offense_state": "triste",
+		"offense_anger": 10.0,
+		"offense_text": "te decepcionas, te pones triste y le pides que no te hable así.",
+		"resentment_style": "te vuelves triste y apagada.",
 	},
 	"ironica": {
 		"label": "Irónica",
@@ -55,6 +78,10 @@ const DATA := {
 		"block_threshold": 80.0,
 		"anger_scale": 1.0,
 		"affection_scale": 0.9,
+		"offense_state": "enojada",
+		"offense_anger": 20.0,
+		"offense_text": "te burlas de él con sarcasmo cortante y te enojas.",
+		"resentment_style": "te vuelves cínica y mordaz.",
 	},
 }
 

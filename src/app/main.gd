@@ -24,6 +24,7 @@ var _avatar_layer: Control
 var _room: RoomBackground
 var _interface_actions: InterfaceActions
 var _touch: TouchInteractions
+var _current_character := ""
 var _chat: ChatView
 var _name_pill: MoodBar
 var _status_label: Label
@@ -46,6 +47,7 @@ func _ready() -> void:
 	_build_layers()
 	_build_overlay()
 	_build_services()
+	_current_character = str(Settings.get_value("character"))
 	_rebuild_avatar()
 	_connect_signals()
 	_load_history_into_chat()
@@ -97,6 +99,7 @@ func _build_layers() -> void:
 	margin.add_child(column)
 
 	column.add_child(_build_header())
+	column.add_child(TrustBar.new())
 	column.add_child(_build_side_buttons())
 
 	var avatar_space := Control.new()
@@ -224,17 +227,34 @@ func _build_services() -> void:
 	add_child(_voice)
 
 
-## Crea el avatar 3D o 2D según Ajustes. Si el 3D falla, usa el 2D.
+## Cambia de personaje: cada uno tiene su historial, ánimo y confianza.
+func _switch_character(character: String) -> void:
+	_current_character = character
+	Memory.reload()
+	Mood.reload()
+	Relationship.reload()
+	_chat.clear()
+	_load_history_into_chat()
+	_avatar_model_path = ""
+
+
+var _avatar_model_path := ""
+
+
+## Crea el avatar 3D o 2D según Ajustes y el personaje. Si el 3D falla, usa el 2D.
 func _rebuild_avatar() -> void:
 	var want_3d := bool(Settings.get_value("avatar_3d"))
-	if _avatar != null and want_3d == _avatar_is_3d:
+	var model_path := str(Settings.character()["model"])
+	if _avatar != null and want_3d == _avatar_is_3d and (not want_3d or model_path == _avatar_model_path):
 		return
+	_avatar_model_path = model_path
 	if _avatar != null:
 		_avatar.queue_free()
 		_avatar = null
 
 	if want_3d:
 		var avatar_3d := Avatar3D.new()
+		avatar_3d.model_path = model_path
 		avatar_3d.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		_avatar_layer.add_child(avatar_3d)
 		if avatar_3d.is_ready():
@@ -256,6 +276,7 @@ func _rebuild_avatar() -> void:
 	_avatar.set_turned_away(Mood.blocked)
 	if _interface_actions:
 		_interface_actions.avatar = _avatar
+	_avatar.struck.connect(_shake_screen)
 	if _touch:
 		_touch.avatar = _avatar
 		_avatar.touched.connect(_touch.on_touched)
@@ -283,6 +304,8 @@ func _connect_signals() -> void:
 
 	Mood.blocked_changed.connect(func(is_blocked: bool): _announce_block.call_deferred(is_blocked))
 	Settings.changed.connect(_on_settings_changed)
+	Relationship.became_partner.connect(func():
+		_chat.add_message(ChatView.Sender.EVENT, "¡Ahora %s y tú son pareja!" % Settings.get_value("companion_name")))
 	_room.room_theme_changed.connect(_on_room_theme_changed)
 	Memory.cleared.connect(_chat.clear)
 
@@ -353,6 +376,7 @@ func _on_gift_chosen(gift_id: String) -> void:
 		return
 	var was_blocked := Mood.blocked
 	var effectiveness := Mood.give_gift(gift_id)
+	Relationship.on_gift(effectiveness)
 	var gift_label: String = Gifts.fetch(gift_id)["label"]
 
 	var for_ai := "%s te dio un regalo: %s." % [Settings.user_display_name(), gift_label]
@@ -376,6 +400,14 @@ func _on_touch_event(for_ai: String, for_chat: String) -> void:
 	_brain.send_event(for_ai, for_chat)
 
 
+## Sacudida de pantalla cuando ella te golpea.
+func _shake_screen() -> void:
+	var tween := create_tween()
+	for i in 6:
+		tween.tween_property(self, "position", Vector2(randf_range(-12, 12), randf_range(-8, 8)), 0.04)
+	tween.tween_property(self, "position", Vector2.ZERO, 0.05)
+
+
 func _announce_block(is_blocked: bool) -> void:
 	var companion := str(Settings.get_value("companion_name"))
 	_avatar.set_turned_away(is_blocked)
@@ -390,6 +422,9 @@ func _announce_block(is_blocked: bool) -> void:
 
 func _on_settings_changed() -> void:
 	_room.set_room_theme(str(Settings.get_value("room_theme")))
+	var character := str(Settings.get_value("character"))
+	if character != _current_character:
+		_switch_character(character)
 	_rebuild_avatar()
 	_refresh_header()
 	_refresh_input_state()

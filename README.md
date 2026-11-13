@@ -15,7 +15,8 @@ Proyecto personal de una asistente / amiga con IA. No lo voy a comercializar ni 
 | 3 | Camina por la pantalla, señala botones, cambia el fondo (día/atardecer/noche), pasea sola y te da la espalda al bloquearte | ✅ |
 | 4 | Enviarle fotos (las ve con visión de Mistral) y que ella genere imágenes/selfies | ✅ |
 | Extra | Tocarla: caricias en la cabeza (toques lentos) y golpes (toques rápidos); ella reacciona y la IA lo registra como trato | ✅ |
-| Futuro | Personalidad adaptativa según cómo la tratas | base lista (`Mood.recent_treatment`) |
+| Relación | Confianza (termómetro), rencor, estados temporales (feliz, triste, enojada, dolida, distante, lasciva), pareja, reacciones a comentarios subidos de tono según personalidad | ✅ |
+| Personajes | Vita (adulta, CC0) y Alicia (solo amistad, sin romance ni +18) con datos separados | ✅ |
 
 ## Estructura
 
@@ -25,6 +26,7 @@ src/
             interface_actions.gd  → lo que ella hace con la interfaz (caminar, señalar, cambiar fondo)
             touch_interactions.gd → caricias y golpes al tocarla
   core/     settings.gd (autoload Settings), json_store.gd, image_utils.gd
+  characters/ characters.gd       → catálogo de personajes (modelo, adulto o no, apariencia)
   ai/       brain.gd              → arma la conversación y llama a Mistral
             mistral_api.gd        → capa HTTP común (reintentos, errores)
             mistral_client.gd     → chat (/v1/chat/completions, con visión)
@@ -34,6 +36,7 @@ src/
             personalities.gd      → catálogo de personalidades
   state/    memory.gd (autoload Memory) → historial y recuerdos
             mood.gd   (autoload Mood)   → enojo, afecto, bloqueo, registro de trato
+            relationship.gd (autoload Relationship) → confianza, rencor, pareja, estados
             gifts.gd                    → catálogo de regalos
   voice/    voice.gd              → texto a voz del sistema
   avatar/   avatar.gd             → contrato común de avatares
@@ -45,7 +48,7 @@ src/
             settings_panel, gift_panel, photo_picker, image_viewer,
             ui_style (paleta y estilos)
 addons/     godot-vrm y MToon (V-Sekai, MIT): importan los .vrm
-assets/models/companion.vrm → el modelo de ella
+assets/models/ → vita.vrm, alicia.vrm
 ```
 
 Las reglas que sigue el código:
@@ -58,11 +61,19 @@ Las reglas que sigue el código:
 - **Mandarle fotos:** botón "Foto". Lo que tengas escrito en la caja se envía como pie de foto. Ella la ve con un modelo con visión (`mistral-small-latest` la tiene).
 - **Imágenes de ella:** cuando le pides un dibujo o una selfie, la IA llena el campo `imagen` y la app la genera con la herramienta `image_generation` de Mistral (agente creado automáticamente). Para que sus selfies se parezcan a ella, ajusta **"Su apariencia"** en Ajustes. No está confirmado que esta herramienta funcione en el plan gratuito; si no, verás el error en el chat.
 
+## Relación y confianza
+
+- **Confianza (0-100):** sube despacio si la tratas bien, baja rápido si no. Niveles: Desconocidos, Conocidos, Amigos, Confianza, Muy cercanos, Íntimos, Pareja.
+- **Picante:** la IA califica cada mensaje tuyo de 0 a 3. Si pasa su límite actual, se ofende según su personalidad (tsundere insulta y bloquea, yandere te golpea y bloquea, dandere llora y se calla, kuudere se vuelve fría...), sube el rencor y baja la confianza.
+- **Estados temporales:** duran unos mensajes. "Lasciva" se activa tras varios mensajes sugerentes con suficiente confianza y se pasa con 10 mensajes normales o si se enoja.
+- **Pareja:** con confianza ≥ 90 puedes pedírselo y ella decide.
+- **+18:** solo con el personaje adulto, con mucha confianza y con la opción activada en Ajustes. Alicia nunca tiene romance ni contenido sexual. Las imágenes generadas siempre son aptas para todo público.
+
 ## Cambiar el modelo
 
-Reemplaza `assets/models/companion.vrm` por tu propio `.vrm` (VRoid Studio, VRoid Hub...) con el mismo nombre y vuelve a abrir el proyecto. Cualquier VRM humanoide sirve: las expresiones y los gestos se adaptan solos.
+Reemplaza `assets/models/vita.vrm` por tu propio `.vrm` (VRoid Studio, VRoid Hub...) con el mismo nombre y vuelve a abrir el proyecto. Cualquier VRM humanoide sirve: las expresiones y los gestos se adaptan solos.
 
-El modelo incluido es **Alicia Solid** (© DWANGO), el modelo de referencia oficial de VRM. Su licencia permite el uso personal; está en `assets/models/LICENSE_MODELO.txt`.
+Modelos incluidos: **Vita** (muestra de VRoid Studio, licencia CC0) y **Alicia Solid** (© DWANGO, modelo de referencia de VRM, uso personal). Licencias en `assets/models/LICENSE_MODELO.txt`. Para añadir otro personaje, agrega su `.vrm` en `assets/models/` y una entrada en `src/characters/characters.gd`.
 
 Si el 3D va lento (por ejemplo en la consola), en Ajustes apaga **Avatar 3D** y se usa la cara 2D.
 

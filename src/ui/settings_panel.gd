@@ -11,6 +11,8 @@ var _companion_name: LineEdit
 var _user_name: LineEdit
 var _personality: OptionButton
 var _appearance: LineEdit
+var _character: OptionButton
+var _adult: CheckButton
 var _room_theme: OptionButton
 var _voice_enabled: CheckButton
 var _avatar_3d: CheckButton
@@ -45,6 +47,13 @@ func _ready() -> void:
 		_model.add_item(model_name)
 	form.add_child(_model)
 
+	_add_label(form, "Personaje")
+	_character = OptionButton.new()
+	for id in Characters.ids():
+		_character.add_item(Characters.fetch(id)["label"])
+	_character.item_selected.connect(_on_character_selected)
+	form.add_child(_character)
+
 	_add_label(form, "Nombre de ella")
 	_companion_name = LineEdit.new()
 	form.add_child(_companion_name)
@@ -68,6 +77,16 @@ func _ready() -> void:
 	for id in RoomBackground.theme_ids():
 		_room_theme.add_item(RoomBackground.THEMES[id]["label"])
 	form.add_child(_room_theme)
+
+	_adult = CheckButton.new()
+	_adult.text = "Contenido adulto +18"
+	form.add_child(_adult)
+	var adult_note := Label.new()
+	adult_note.text = "Solo con el personaje adulto y con mucha confianza. Al activarlo confirmas que eres mayor de edad."
+	adult_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	adult_note.add_theme_font_size_override("font_size", 12)
+	adult_note.add_theme_color_override("font_color", UIStyle.PLUM_DIM)
+	form.add_child(adult_note)
 
 	_avatar_3d = CheckButton.new()
 	_avatar_3d.text = "Avatar 3D (apágalo si va lento)"
@@ -114,6 +133,8 @@ func load_values() -> void:
 	var ids := Personalities.ids()
 	_personality.select(maxi(0, ids.find(str(Settings.get_value("personality")))))
 	_appearance.text = str(Settings.get_value("appearance"))
+	_character.select(maxi(0, Characters.ids().find(str(Settings.get_value("character")))))
+	_adult.button_pressed = bool(Settings.get_value("adult_content"))
 	_room_theme.select(maxi(0, RoomBackground.theme_ids().find(str(Settings.get_value("room_theme")))))
 	_avatar_3d.button_pressed = bool(Settings.get_value("avatar_3d"))
 	_voice_enabled.button_pressed = bool(Settings.get_value("voice_enabled"))
@@ -123,11 +144,7 @@ func load_values() -> void:
 
 
 func _on_save_pressed() -> void:
-	var new_key := _api_key.text.strip_edges()
-	if new_key != str(Settings.get_value("api_key")):
-		# El agente de imágenes pertenece a la cuenta anterior.
-		Settings.set_value("image_agent_id", "")
-	Settings.set_value("api_key", new_key)
+	Settings.set_value("api_key", _api_key.text.strip_edges())
 	Settings.set_value("model", _model.get_item_text(_model.selected))
 	var name_text := _companion_name.text.strip_edges()
 	Settings.set_value("companion_name", name_text if not name_text.is_empty() else "Mia")
@@ -136,6 +153,8 @@ func _on_save_pressed() -> void:
 	if not _appearance.text.strip_edges().is_empty():
 		Settings.set_value("appearance", _appearance.text.strip_edges())
 	Settings.set_value("room_theme", RoomBackground.theme_ids()[_room_theme.selected])
+	Settings.set_value("character", Characters.ids()[_character.selected])
+	Settings.set_value("adult_content", _adult.button_pressed)
 	Settings.set_value("avatar_3d", _avatar_3d.button_pressed)
 	Settings.set_value("voice_enabled", _voice_enabled.button_pressed)
 	Settings.set_value("voice_rate", _voice_rate.value)
@@ -143,6 +162,13 @@ func _on_save_pressed() -> void:
 	Settings.set_value("ui_scale", _ui_scale.value)
 	Settings.save()
 	closed.emit()
+
+
+## Al elegir otro personaje se proponen su nombre y apariencia por defecto.
+func _on_character_selected(index: int) -> void:
+	var character := Characters.fetch(Characters.ids()[index])
+	_companion_name.text = character["default_name"]
+	_appearance.text = character["appearance"]
 
 
 ## Pide confirmación con un segundo toque para no borrar por accidente.
@@ -155,6 +181,7 @@ func _on_clear_pressed() -> void:
 	_clear_button.text = "Memoria borrada"
 	Memory.clear_all()
 	Mood.reset()
+	Relationship.reset()
 	memory_cleared.emit()
 
 

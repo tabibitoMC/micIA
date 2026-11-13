@@ -6,7 +6,10 @@ extends Avatar
 ## de la habitación. Las expresiones las maneja VrmExpressionMixer y el
 ## cuerpo VrmBodyPoser.
 
-const DEFAULT_MODEL_PATH := "res://assets/models/companion.vrm"
+const DEFAULT_MODEL_PATH := "res://assets/models/vita.vrm"
+
+## Modelo a cargar (se fija antes de añadir el avatar a la escena).
+var model_path := DEFAULT_MODEL_PATH
 
 ## Emoción de la app -> {expresión VRM: peso}
 const EMOTION_EXPRESSIONS := {
@@ -17,13 +20,24 @@ const EMOTION_EXPRESSIONS := {
 	"sorprendida": {"oh": 0.35, "lookUp": 0.3},
 	"avergonzada": {"relaxed": 0.6, "lookDown": 0.5},
 	"pensativa": {"relaxed": 0.4, "lookUp": 0.6, "lookLeft": 0.4},
+	"coqueta": {"happy": 0.35, "relaxed": 0.45, "lookDown": 0.2},
 }
+
+## Ajustes de física de resortes según el nombre de los huesos:
+## [texto en el nombre, rigidez, arrastre, gravedad]. Menos rigidez y arrastre
+## = más rebote. VRoid nombra el busto "J_Sec_*_Bust*".
+const SPRING_TUNING := [
+	["Bust", 0.45, 0.5, 1.3],
+	["Skirt", 0.8, 0.75, 1.1],
+	["Hair", 0.9, 0.85, 1.0],
+]
 ## Expresiones que ya cierran los ojos (con ellas no se parpadea).
 const EYES_CLOSED_EXPRESSIONS := ["happy", "relaxed"]
 const MOUTH_SHAPES := ["aa", "ih", "ou", "ee", "oh"]
 
 var _viewport: SubViewport
 var _camera: Camera3D
+var _floor_shadow: MeshInstance3D
 var _model: Node3D
 var _mixer: VrmExpressionMixer
 var _poser: VrmBodyPoser
@@ -50,7 +64,7 @@ const WALK_TURN := 1.1
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	_build_viewport()
-	load_model(DEFAULT_MODEL_PATH)
+	load_model(model_path)
 
 
 ## Devuelve false si el modelo no se pudo cargar (main.gd usa el 2D entonces).
@@ -63,6 +77,8 @@ func load_model(path: String) -> bool:
 		push_warning("No se pudo cargar el modelo VRM: %s" % path)
 		return false
 	_model = scene.instantiate() as Node3D
+	_tune_springs(_model)
+	_cast_shadows(_model)
 	_viewport.add_child(_model)
 
 	var skeletons := _model.find_children("*", "Skeleton3D", true, false)
@@ -79,6 +95,7 @@ func load_model(path: String) -> bool:
 	if _poser.forward() == Vector3.FORWARD:
 		_model.rotate_y(PI)
 	_model_base_y = _model.position.y
+	_place_floor_shadow.call_deferred()
 	_home_x = _model.position.x
 	_base_yaw = _model.rotation.y
 	_frame_camera.call_deferred()
@@ -131,6 +148,28 @@ func play_action(action: String) -> void:
 			_action_tween.tween_interval(2.2)
 			_action_tween.tween_property(p, "arms_crossed", 0.0, 0.5).set_trans(Tween.TRANS_SINE)
 			_action_tween.parallel().tween_property(p, "head_roll", 0.0, 0.5)
+		"golpear":
+			# Echa el brazo atrás y lanza un manotazo hacia la cámara.
+			p.point_side = "Right"
+			p.point_direction = (Vector3.UP * 0.6 + _poser.forward() * -0.2 + Vector3.LEFT * 0.4).normalized()
+			_action_tween.tween_property(p, "point_amount", 1.0, 0.18)
+			_action_tween.tween_callback(func():
+				p.point_direction = (_poser.forward() + Vector3.UP * 0.15).normalized())
+			_action_tween.tween_property(self, "_jump_offset", 0.04, 0.08)
+			_action_tween.tween_callback(func(): struck.emit())
+			_action_tween.tween_property(self, "_jump_offset", 0.0, 0.15)
+			_action_tween.tween_interval(0.35)
+			_action_tween.tween_property(p, "point_amount", 0.0, 0.3)
+		"llorar":
+			# Cabeza gacha, manos a la cara y hombros temblando.
+			_action_tween.tween_property(p, "head_pitch", 0.45, 0.4)
+			_action_tween.parallel().tween_property(p, "arms_crossed", 0.75, 0.4)
+			for i in 8:
+				_action_tween.tween_property(p, "body_lean", 0.03, 0.12)
+				_action_tween.tween_property(p, "body_lean", -0.03, 0.12)
+			_action_tween.tween_property(p, "body_lean", 0.0, 0.1)
+			_action_tween.tween_property(p, "head_pitch", 0.0, 0.5)
+			_action_tween.parallel().tween_property(p, "arms_crossed", 0.0, 0.5)
 		"mirar_otro_lado":
 			_action_tween.tween_property(p, "head_yaw", -0.6, 0.3).set_trans(Tween.TRANS_SINE)
 			_action_tween.parallel().tween_property(p, "head_roll", -0.08, 0.3)
@@ -232,6 +271,11 @@ func _process(delta: float) -> void:
 	_poser.update(delta)
 	_model.position.y = _model_base_y + _jump_offset + _poser.walk_bounce()
 	_model.rotation.y = _base_yaw + _facing_offset
+	if _floor_shadow:
+		_floor_shadow.position.x = _model.position.x
+		# La sombra se encoge un poco al saltar.
+		var lift := _jump_offset + _poser.walk_bounce()
+		_floor_shadow.scale = Vector3.ONE * clampf(1.0 - lift * 3.0, 0.6, 1.0)
 	_update_face(delta)
 
 
@@ -282,6 +326,7 @@ func _reset_action_params() -> void:
 	_poser.wave_swing = 0.0
 	_poser.arms_crossed = 0.0
 	_poser.point_amount = 0.0
+	_poser.body_lean = 0.0
 	_jump_offset = 0.0
 
 
@@ -302,19 +347,89 @@ func _build_viewport() -> void:
 	_camera.fov = 28.0
 	_viewport.add_child(_camera)
 
+	# Luz principal cálida con sombras, desde arriba a la derecha.
 	var key_light := DirectionalLight3D.new()
-	key_light.rotation_degrees = Vector3(-35, 25, 0)
-	key_light.light_energy = 1.0
+	key_light.rotation_degrees = Vector3(-38, 28, 0)
+	key_light.light_color = Color(1.0, 0.96, 0.93)
+	key_light.light_energy = 0.8
+	key_light.shadow_enabled = true
+	key_light.shadow_bias = 0.03
+	key_light.shadow_blur = 1.5
+	key_light.directional_shadow_max_distance = 8.0
 	_viewport.add_child(key_light)
+	# Relleno suave y frío desde la izquierda (suaviza las sombras).
+	var fill_light := DirectionalLight3D.new()
+	fill_light.rotation_degrees = Vector3(-15, -55, 0)
+	fill_light.light_color = Color(0.85, 0.88, 1.0)
+	fill_light.light_energy = 0.12
+	_viewport.add_child(fill_light)
+	# Contraluz rosado: dibuja el contorno y da sensación de volumen.
+	var rim_light := DirectionalLight3D.new()
+	rim_light.rotation_degrees = Vector3(-20, 160, 0)
+	rim_light.light_color = Color(1.0, 0.75, 0.85)
+	rim_light.light_energy = 0.25
+	_viewport.add_child(rim_light)
 
 	var environment := Environment.new()
 	environment.background_mode = Environment.BG_CLEAR_COLOR
 	environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	environment.ambient_light_color = Color(1.0, 0.94, 0.95)
-	environment.ambient_light_energy = 0.7
+	environment.ambient_light_color = Color(1.0, 0.92, 0.95)
+	environment.ambient_light_energy = 0.3
 	var world_env := WorldEnvironment.new()
 	world_env.environment = environment
 	_viewport.add_child(world_env)
+
+
+## Hace la física de resortes (busto, falda, pelo) más suelta.
+func _tune_springs(model: Node) -> void:
+	for node in model.find_children("*", "Node3D", true, false):
+		var springs: Variant = node.get("spring_bones")
+		if typeof(springs) != TYPE_ARRAY:
+			continue
+		for spring in springs:
+			if spring == null:
+				continue
+			var names := " ".join(spring.joint_nodes)
+			for tuning in SPRING_TUNING:
+				if names.contains(tuning[0]):
+					spring.stiffness_scale = tuning[1]
+					spring.drag_force_scale = tuning[2]
+					spring.gravity_scale = tuning[3]
+					break
+
+
+func _cast_shadows(model: Node) -> void:
+	for mesh in model.find_children("*", "MeshInstance3D", true, false):
+		mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+
+
+## Sombra suave y redonda en el piso, bajo sus pies.
+func _place_floor_shadow() -> void:
+	if _poser == null:
+		return
+	if _floor_shadow:
+		_floor_shadow.queue_free()
+	var feet_y := minf(_poser.bone_global_position("LeftFoot").y, _poser.bone_global_position("RightFoot").y)
+	var gradient := Gradient.new()
+	gradient.set_color(0, Color(0.35, 0.1, 0.25, 0.45))
+	gradient.set_color(1, Color(0.35, 0.1, 0.25, 0.0))
+	var texture := GradientTexture2D.new()
+	texture.gradient = gradient
+	texture.fill = GradientTexture2D.FILL_RADIAL
+	texture.fill_from = Vector2(0.5, 0.5)
+	texture.fill_to = Vector2(0.5, 0.0)
+	var material := StandardMaterial3D.new()
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	material.albedo_texture = texture
+	var plane := PlaneMesh.new()
+	plane.size = Vector2(0.9, 0.55)
+	plane.material = material
+	_floor_shadow = MeshInstance3D.new()
+	_floor_shadow.mesh = plane
+	_floor_shadow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_floor_shadow.position = Vector3(_model.position.x, feet_y - 0.03, _model.global_position.z)
+	_viewport.add_child(_floor_shadow)
 
 
 ## Encuadre de la cintura para arriba, como en las apps de compañeras.

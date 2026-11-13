@@ -10,8 +10,8 @@ extends RefCounted
 ## Esta clase lo valida: cualquier valor fuera de lo permitido se reemplaza
 ## por uno seguro, para que un error de la IA nunca rompa la app.
 
-const EMOTIONS := ["neutral", "feliz", "triste", "enojada", "sorprendida", "avergonzada", "pensativa"]
-const ACTIONS := ["ninguna", "saludar", "asentir", "negar", "cruzar_brazos", "saltar", "mirar_otro_lado"]
+const EMOTIONS := ["neutral", "feliz", "triste", "enojada", "sorprendida", "avergonzada", "pensativa", "coqueta"]
+const ACTIONS := ["ninguna", "saludar", "asentir", "negar", "cruzar_brazos", "saltar", "mirar_otro_lado", "golpear", "llorar"]
 const TREATMENTS := ["bueno", "neutral", "malo", "abusivo"]
 ## Cosas que ella puede hacer con la interfaz (ver InterfaceActions).
 const INTERFACE_ACTIONS := ["ninguna", "pedir_regalo", "fondo_dia", "fondo_atardecer", "fondo_noche", "pasear"]
@@ -30,6 +30,11 @@ var remember := ""
 ## Si no está vacío, ella quiere mandarte una imagen: descripción en inglés.
 var image_prompt := ""
 var interface_action := "ninguna"
+## Qué tan picante fue el último mensaje de él: 0 nada, 1 coqueteo,
+## 2 subido de tono, 3 explícito.
+var spice := 0
+## Ella acepta ser su pareja en esta respuesta.
+var accepts_partner := false
 
 
 ## Convierte el texto devuelto por la IA en un AIReply. Devuelve null si no
@@ -53,6 +58,8 @@ static func from_text(raw: String) -> AIReply:
 	var remember_value: Variant = data.get("recordar", "")
 	reply.remember = str(remember_value).strip_edges() if remember_value != null else ""
 	reply.interface_action = _pick(data.get("interfaz"), INTERFACE_ACTIONS, "ninguna")
+	reply.spice = _clamp_int(data.get("picante", 0), Vector2i(0, 3))
+	reply.accepts_partner = data.get("acepta_pareja", false) == true
 	var image_value: Variant = data.get("imagen", "")
 	reply.image_prompt = str(image_value).strip_edges() if image_value != null else ""
 	return reply
@@ -71,6 +78,8 @@ func to_json_string() -> String:
 		"recordar": remember,
 		"imagen": image_prompt,
 		"interfaz": interface_action,
+		"picante": spice,
+		"acepta_pareja": accepts_partner,
 	})
 
 

@@ -10,6 +10,8 @@ extends Control
 
 ## Se emite cuando el usuario toca el avatar. `point` es global (pantalla).
 signal touched(point: Vector2)
+## Se emite cuando ella "te golpea" (acción golpear), para sacudir la pantalla.
+signal struck
 
 
 func set_emotion(_emotion: String) -> void:

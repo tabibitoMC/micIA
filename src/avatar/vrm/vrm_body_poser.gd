@@ -59,6 +59,13 @@ func head_global_position() -> Vector3:
 	return _skeleton.global_transform * _skeleton.get_bone_global_pose(_bones["Head"]).origin
 
 
+func bone_global_position(bone_name: String) -> Vector3:
+	var bone := _skeleton.find_bone(bone_name)
+	if bone == -1:
+		return hips_global_position()
+	return _skeleton.global_transform * _skeleton.get_bone_global_pose(bone).origin
+
+
 func hips_global_position() -> Vector3:
 	var hips: int = _bones.get("Hips", _bones["Head"])
 	return _skeleton.global_transform * _skeleton.get_bone_global_pose(hips).origin

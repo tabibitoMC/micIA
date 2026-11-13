@@ -84,6 +84,15 @@ func play_action(action: String) -> void:
 			_action_tween.tween_property(self, "anim_tilt", 0.12, 0.25)
 			_action_tween.tween_interval(1.5)
 			_action_tween.tween_property(self, "anim_tilt", 0.0, 0.3)
+		"golpear":
+			_action_tween.tween_property(self, "anim_offset:y", 30.0, 0.1)
+			_action_tween.tween_callback(func(): struck.emit())
+			_action_tween.tween_property(self, "anim_offset:y", 0.0, 0.2)
+		"llorar":
+			for i in 6:
+				_action_tween.tween_property(self, "anim_offset:x", -4.0, 0.08)
+				_action_tween.tween_property(self, "anim_offset:x", 4.0, 0.08)
+			_action_tween.tween_property(self, "anim_offset:x", 0.0, 0.08)
 		"mirar_otro_lado":
 			_action_tween.tween_property(self, "look", Vector2(-1.0, 0.0), 0.2)
 			_action_tween.tween_property(self, "anim_tilt", -0.1, 0.2)
@@ -169,7 +178,7 @@ func _draw() -> void:
 	_draw_eyes(radius)
 	_draw_brows(radius)
 	_draw_mouth(radius)
-	if _emotion == "avergonzada" or _emotion == "feliz":
+	if _emotion in ["avergonzada", "feliz", "coqueta"]:
 		_draw_blush(radius)
 	if _emotion == "enojada":
 		_draw_anger_mark(radius)

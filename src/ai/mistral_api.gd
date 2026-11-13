@@ -27,11 +27,18 @@ func get_bytes(path: String, api_key: String) -> Dictionary:
 	return await _request(path, HTTPClient.METHOD_GET, "", api_key, false)
 
 
+## Descarga una URL completa (p. ej. una imagen generada). Solo se manda la
+## API key si la URL es de Mistral.
+func get_url_bytes(url: String, api_key: String) -> Dictionary:
+	var key := api_key if url.contains("mistral.ai") else ""
+	return await _request(url, HTTPClient.METHOD_GET, "", key, false)
+
+
 func _request(path: String, method: int, body: String, api_key: String, parse_json: bool) -> Dictionary:
-	var headers := PackedStringArray([
-		"Authorization: Bearer " + api_key.strip_edges(),
-		"Accept: application/json" if parse_json else "Accept: */*",
-	])
+	var url := path if path.begins_with("https://") else BASE_URL + path
+	var headers := PackedStringArray(["Accept: application/json" if parse_json else "Accept: */*"])
+	if not api_key.is_empty():
+		headers.append("Authorization: Bearer " + api_key.strip_edges())
 	if not body.is_empty():
 		headers.append("Content-Type: application/json")
 
@@ -40,7 +47,7 @@ func _request(path: String, method: int, body: String, api_key: String, parse_js
 		var http := HTTPRequest.new()
 		http.timeout = TIMEOUT_SECONDS
 		add_child(http)
-		var err := http.request(BASE_URL + path, headers, method, body)
+		var err := http.request(url, headers, method, body)
 		if err != OK:
 			http.queue_free()
 			return _fail(0, "No se pudo iniciar la conexión (error %d)." % err)

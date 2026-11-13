@@ -12,7 +12,8 @@ extends Node
 signal changed
 signal blocked_changed(is_blocked: bool)
 
-const SAVE_PATH := "user://mood.json"
+var SAVE_PATH: String:
+	get: return Characters.data_dir(str(Settings.get_value("character"))) + "/mood.json"
 const ANGER_DECAY_PER_MINUTE := 1.5
 ## Para desbloquear, el enojo debe bajar este margen por debajo del umbral
 ## (evita que se bloquee y desbloquee a cada rato).
@@ -35,13 +36,26 @@ var _last_update_unix := 0.0
 
 
 func _ready() -> void:
-	_load()
-	_decay_since_last_update()
+	reload()
 	var timer := Timer.new()
 	timer.wait_time = TICK_SECONDS
 	timer.autostart = true
 	timer.timeout.connect(_decay_since_last_update)
 	add_child(timer)
+
+
+## Carga el ánimo del personaje actual.
+func reload() -> void:
+	anger = 0.0
+	affection = 50.0
+	blocked = false
+	treatment_counts = {"bueno": 0, "neutral": 0, "malo": 0, "abusivo": 0}
+	recent_treatment = []
+	_last_gift_unix = 0.0
+	_last_update_unix = 0.0
+	_load()
+	_decay_since_last_update()
+	changed.emit()
 
 
 func apply_reply(reply: AIReply) -> void:

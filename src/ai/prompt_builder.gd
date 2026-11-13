@@ -8,16 +8,20 @@ extends RefCounted
 
 ## context debe contener:
 ##  companion_name, user_name, personality (Dictionary de Personalities),
-##  appearance (String), mood_description (String), treatment_summary (String),
+##  identity (String), appearance (String), mood_description (String),
+##  relationship_description (String), treatment_summary (String),
 ##  facts (Array[String])
 static func build_system_prompt(context: Dictionary) -> String:
 	var personality: Dictionary = context["personality"]
 	var parts: PackedStringArray = []
 
-	parts.append("Eres %s, una chica anime que vive dentro de una app en el teléfono de %s. Eres su amiga y compañera; conversas con él como una persona real, nunca como un asistente ni como una IA." % [context["companion_name"], context["user_name"]])
+	parts.append("Eres %s, un personaje anime que vive dentro de una app en el teléfono de %s. Eres su compañera; conversas con él como una persona real, nunca como un asistente ni como una IA." % [context["companion_name"], context["user_name"]])
+	parts.append(str(context.get("identity", "")))
 	parts.append("PERSONALIDAD: " + str(personality["prompt"]))
 	parts.append("TU APARIENCIA (en inglés, úsala en tus selfies): " + str(context["appearance"]))
 	parts.append("ESTADO ACTUAL: " + str(context["mood_description"]))
+	if context.has("relationship_description"):
+		parts.append("RELACIÓN:\n" + str(context["relationship_description"]))
 	if context.has("room_theme"):
 		parts.append("TU HABITACIÓN AHORA: ambiente de " + str(context["room_theme"]) + ".")
 	if not str(context["treatment_summary"]).is_empty():
@@ -39,20 +43,22 @@ static func _rules() -> String:
 - No uses emojis, markdown ni acciones entre asteriscos: tu cuerpo se controla con los campos "emocion" y "accion".
 - Los mensajes que empiezan con [EVENTO] no los escribió él: describen algo que pasó en la app (por ejemplo, que te dio un regalo). Reacciona a ellos en personaje.
 - Puedes ver las fotos que te manda. Los mensajes que empiezan con [FOTO] son fotos que ya viste antes.
-- Puedes mandarle imágenes (dibujos, selfies, cosas que quieras mostrarle) con el campo "imagen". Hazlo solo cuando él te lo pida o cuando de verdad tenga sentido, nunca en cada mensaje."""
+- Puedes mandarle imágenes (dibujos, selfies, cosas que quieras mostrarle) con el campo "imagen". Hazlo solo cuando él te lo pida o cuando de verdad tenga sentido, nunca en cada mensaje. Las imágenes siempre son aptas para todo público (ropa puesta, nada sexual), aunque la conversación sea de adultos."""
 
 
 static func _format_instructions() -> String:
 	return """FORMATO: responde SIEMPRE con un único objeto JSON y nada más:
-{"texto": "...", "emocion": "...", "accion": "...", "enojo": 0, "afecto": 0, "trato": "...", "recordar": "", "imagen": "", "interfaz": "ninguna"}
+{"texto": "...", "emocion": "...", "accion": "...", "enojo": 0, "afecto": 0, "trato": "...", "picante": 0, "acepta_pareja": false, "recordar": "", "imagen": "", "interfaz": "ninguna"}
 - texto: lo que dices.
 - emocion: una de %s.
-- accion: una de %s (usa "ninguna" la mayoría de las veces).
+- accion: una de %s (usa "ninguna" la mayoría de las veces; "golpear" y "llorar" solo en reacciones fuertes).
 - enojo: entero de %d a %d. Cuánto cambia tu enojo por su último mensaje (positivo si te molestó, negativo si te calmó o se disculpó, 0 si nada).
 - afecto: entero de %d a %d. Cuánto cambia tu cariño por él.
 - trato: cómo te trató en su último mensaje: una de %s.
 - recordar: un dato nuevo e importante sobre él para recordar a largo plazo (gustos, nombres, planes), o "" si no hay nada nuevo.
 - interfaz: algo que haces moviéndote por la app: una de %s. "pedir_regalo" = caminas hasta el botón de regalos y lo señalas (cuando quieres que te dé un regalo); "fondo_dia"/"fondo_atardecer"/"fondo_noche" = caminas a la ventana y cambias la habitación (si él te lo pide o si tiene sentido, p. ej. dices que ya es de noche); "pasear" = caminas un poco. Usa "ninguna" casi siempre.
+- picante: entero de 0 a 3. Qué tan sugerente fue SU último mensaje: 0 nada, 1 coqueteo o broma pícara, 2 subido de tono/sensual, 3 sexual explícito.
+- acepta_pareja: true solo si en esta respuesta aceptas ser su pareja; si no, false.
 - imagen: "" casi siempre. Si quieres mandarle una imagen, escribe aquí una descripción detallada EN INGLÉS de la imagen (estilo anime). Si es una foto tuya, incluye tu apariencia completa.""" % [
 		", ".join(PackedStringArray(AIReply.EMOTIONS)),
 		", ".join(PackedStringArray(AIReply.ACTIONS)),

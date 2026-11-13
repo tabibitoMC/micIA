@@ -84,6 +84,8 @@ func _system_prompt() -> String:
 		"user_name": Settings.user_display_name(),
 		"personality": Personalities.fetch(str(Settings.get_value("personality"))),
 		"appearance": str(Settings.get_value("appearance")),
+		"identity": str(Settings.character()["identity"]),
+		"relationship_description": Relationship.describe_for_prompt(Personalities.fetch(str(Settings.get_value("personality")))),
 		"room_theme": RoomBackground.THEMES.get(str(Settings.get_value("room_theme")), {"label": "Día"})["label"],
 		"mood_description": Mood.describe_for_prompt(),
 		"treatment_summary": Mood.treatment_summary(),
@@ -107,6 +109,7 @@ func _on_completed(content: String) -> void:
 	if not reply.remember.is_empty():
 		Memory.add_fact(reply.remember)
 	Mood.apply_reply(reply)
+	Relationship.apply_reply(reply, Personalities.fetch(str(Settings.get_value("personality"))))
 	reply_ready.emit(reply)
 	if not reply.image_prompt.is_empty():
 		image_requested.emit(reply.image_prompt)

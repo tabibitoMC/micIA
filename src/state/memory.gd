@@ -1,11 +1,9 @@
 extends Node
 ## Autoload "Memory": historial de la conversación y recuerdos a largo plazo.
-## Todo se guarda en user:// y sobrevive entre sesiones.
+## Cada personaje tiene los suyos en user://characters/<id>/.
 
 signal cleared
 
-const HISTORY_PATH := "user://history.json"
-const FACTS_PATH := "user://facts.json"
 const MAX_STORED_MESSAGES := 300
 const MAX_FACTS := 40
 
@@ -22,7 +20,18 @@ var history: Array = []
 var facts: Array = []
 
 
+var HISTORY_PATH: String:
+	get: return Characters.data_dir(str(Settings.get_value("character"))) + "/history.json"
+var FACTS_PATH: String:
+	get: return Characters.data_dir(str(Settings.get_value("character"))) + "/facts.json"
+
+
 func _ready() -> void:
+	reload()
+
+
+## Carga los datos del personaje actual (al iniciar o al cambiar de personaje).
+func reload() -> void:
 	history = JsonStore.load_json(HISTORY_PATH, [])
 	facts = JsonStore.load_json(FACTS_PATH, [])
 

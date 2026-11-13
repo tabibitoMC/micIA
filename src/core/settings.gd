@@ -14,7 +14,8 @@ const SECTION := "settings"
 const DEFAULTS := {
 	"api_key": "",
 	"model": "mistral-small-latest",
-	"companion_name": "Mia",
+	"character": "vita",
+	"companion_name": "Vita",
 	"user_name": "",
 	"personality": "tsundere",
 	"avatar_3d": true,
@@ -23,10 +24,10 @@ const DEFAULTS := {
 	"voice_rate": 1.0,
 	"voice_pitch": 1.2,
 	"ui_scale": 1.0,
+	## Contenido +18: solo afecta al personaje adulto. Apagado por defecto.
+	"adult_content": false,
 	## Cómo es ella físicamente (se usa en sus selfies y para que se describa bien).
-	"appearance": "anime girl with very long straight blonde hair, a braid on one side, a big dark navy ribbon on her head, big blue eyes, white sleeveless dress with light blue details and long white sleeves",
-	## Interno: id del agente de Mistral que genera imágenes (se crea solo).
-	"image_agent_id": "",
+	"appearance": "adult anime woman, 25 years old, tall, short silver-white hair, heterochromia (blue and green eyes), dark navy and cyan bodysuit with glowing cyan lines, long gloves, thigh-high boots",
 }
 
 ## Modelos de Mistral que se ofrecen en Ajustes.
@@ -51,6 +52,15 @@ func set_value(key: String, value: Variant) -> void:
 		push_warning("Ajuste desconocido: %s" % key)
 		return
 	_values[key] = value
+
+
+func character() -> Dictionary:
+	return Characters.fetch(str(get_value("character")))
+
+
+## ¿Se permite romance/+18 ahora? (personaje adulto y opción activada)
+func adult_allowed() -> bool:
+	return bool(character()["adult"]) and bool(get_value("adult_content"))
 
 
 func has_api_key() -> bool:

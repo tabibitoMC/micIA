@@ -3,13 +3,13 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-uid="uid://dovpqb3gdn4cq"
-path="res://.godot/imported/companion.vrm-a0cb7fb295889d1939919a17de0ffec5.scn"
+uid="uid://b3a4txbd1mpqs"
+path="res://.godot/imported/vita.vrm-6a47699cf5ac83e8f4569e7f156abebc.scn"
 
 [deps]
 
-source_file="res://assets/models/companion.vrm"
-dest_files=["res://.godot/imported/companion.vrm-a0cb7fb295889d1939919a17de0ffec5.scn"]
+source_file="res://assets/models/vita.vrm"
+dest_files=["res://.godot/imported/vita.vrm-6a47699cf5ac83e8f4569e7f156abebc.scn"]
 
 [params]
 

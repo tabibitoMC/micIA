@@ -18,6 +18,7 @@ static func load_json(path: String, fallback: Variant) -> Variant:
 
 
 static func save_json(path: String, data: Variant) -> bool:
+	DirAccess.make_dir_recursive_absolute(path.get_base_dir())
 	var file := FileAccess.open(path, FileAccess.WRITE)
 	if file == null:
 		push_warning("No se pudo guardar %s (error %d)" % [path, FileAccess.get_open_error()])

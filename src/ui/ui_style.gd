@@ -77,7 +77,7 @@ static func style_button(button: Button, kind: ButtonKind) -> void:
 	var colors := _button_colors(kind)
 	button.add_theme_stylebox_override("normal", pill(colors[0], colors[3]))
 	button.add_theme_stylebox_override("hover", pill(colors[0].lightened(0.08), colors[3]))
-	button.add_theme_stylebox_override("pressed", pill(colors[1], colors[3]))
+	button.add_theme_stylebox_override("pressed", pill_pressed(colors[1], colors[3]))
 	button.add_theme_stylebox_override("disabled", pill(colors[0].lerp(Color.WHITE, 0.55), colors[3]))
 	button.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
 	for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]:
@@ -94,27 +94,45 @@ static func rounded(color: Color, radius := 12, padding := 10) -> StyleBoxFlat:
 	return box
 
 
-## Píldora: muy redondeada, con borde opcional.
-static func pill(color: Color, border := Color.TRANSPARENT, padding_h := 18, padding_v := 8) -> StyleBoxFlat:
+## Píldora: muy redondeada, con borde opcional y "canto" inferior más oscuro
+## (depth) que le da aspecto de pieza en relieve.
+static func pill(color: Color, border := Color.TRANSPARENT, padding_h := 18, padding_v := 8, depth := 3) -> StyleBoxFlat:
 	var box := rounded(color, 999, 0)
 	box.content_margin_left = padding_h
 	box.content_margin_right = padding_h
 	box.content_margin_top = padding_v
 	box.content_margin_bottom = padding_v
+	box.border_color = border if border.a > 0.0 else color.darkened(0.16)
 	if border.a > 0.0:
-		box.border_color = border
 		box.set_border_width_all(2)
+	if depth > 0:
+		box.border_width_bottom = depth + (2 if border.a > 0.0 else 0)
+		box.border_color = border.darkened(0.1) if border.a > 0.0 else color.darkened(0.18)
+		box.shadow_color = SHADOW
+		box.shadow_size = 3
+		box.shadow_offset = Vector2(0, 2)
 	return box
 
 
-## Tarjeta: fondo claro, borde rosado suave y sombra.
+## Versión "presionada" de una píldora: sin canto, un poco hundida.
+static func pill_pressed(color: Color, border := Color.TRANSPARENT, padding_h := 18, padding_v := 8) -> StyleBoxFlat:
+	var box := pill(color, border, padding_h, padding_v, 0)
+	box.content_margin_top = padding_v + 3
+	box.content_margin_bottom = padding_v - 1
+	box.shadow_size = 0
+	return box
+
+
+## Tarjeta: fondo claro, borde blanco (brillo), canto inferior y sombra.
 static func card(color: Color, radius := 24, padding := 18) -> StyleBoxFlat:
 	var box := rounded(color, radius, padding)
 	box.border_color = WHITE
 	box.set_border_width_all(3)
-	box.shadow_color = SHADOW
-	box.shadow_size = 10
-	box.shadow_offset = Vector2(0, 4)
+	box.border_width_bottom = 6
+	box.border_color = WHITE
+	box.shadow_color = Color(SHADOW, 0.28)
+	box.shadow_size = 14
+	box.shadow_offset = Vector2(0, 6)
 	return box
 
 
@@ -137,8 +155,12 @@ static func bubble(color: Color, border: Color, tail_left: bool) -> StyleBoxFlat
 	return box
 
 
+## Campo de texto: hundido (sombra interior simulada con borde superior).
 static func field(border := PINK_BORDER) -> StyleBoxFlat:
-	var box := pill(WHITE, border, 18, 10)
+	var box := pill(WHITE, border, 18, 10, 0)
+	box.border_width_top = 3
+	box.shadow_color = Color(SHADOW, 0.12)
+	box.shadow_size = 2
 	return box
 
 
@@ -146,7 +168,7 @@ static func _apply_button_styles(theme: Theme, type_name: String, kind: ButtonKi
 	var colors := _button_colors(kind)
 	theme.set_stylebox("normal", type_name, pill(colors[0], colors[3]))
 	theme.set_stylebox("hover", type_name, pill(colors[0].lightened(0.08), colors[3]))
-	theme.set_stylebox("pressed", type_name, pill(colors[1], colors[3]))
+	theme.set_stylebox("pressed", type_name, pill_pressed(colors[1], colors[3]))
 	theme.set_stylebox("disabled", type_name, pill(colors[0].lerp(Color.WHITE, 0.55), colors[3]))
 	theme.set_stylebox("focus", type_name, StyleBoxEmpty.new())
 	for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]:
@@ -162,6 +184,6 @@ static func _button_colors(kind: ButtonKind) -> Array:
 		ButtonKind.CTA:
 			return [GREEN, GREEN_DEEP, WHITE, Color("2aa84b")]
 		ButtonKind.FLAT:
-			return [Color(1, 1, 1, 0.0), Color(1, 1, 1, 0.3), PLUM_DIM, Color.TRANSPARENT]
+			return [Color(1, 1, 1, 0.0), Color(1, 1, 1, 0.3), PLUM_DIM, Color(1, 1, 1, 0.01)]
 		_:
 			return [PINK, PINK_DEEP, WHITE, Color.TRANSPARENT]
