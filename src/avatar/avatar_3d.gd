@@ -169,6 +169,27 @@ func point_at_screen(point: Vector2, seconds := 1.0) -> void:
 	await tween.finished
 
 
+func is_head_at(point: Vector2) -> bool:
+	if _poser == null:
+		return false
+	var head := _world_to_screen(_poser.head_global_position() + Vector3.UP * 0.08)
+	return point.distance_to(head) < size.y * 0.11
+
+
+func is_body_at(point: Vector2) -> bool:
+	if _poser == null:
+		return false
+	var head := _world_to_screen(_poser.head_global_position())
+	var hips := _world_to_screen(_poser.hips_global_position())
+	var half_width := size.x * 0.2
+	return point.y > head.y - size.y * 0.12 and absf(point.x - head.x) < half_width and point.y < hips.y + size.y * 0.3
+
+
+func _world_to_screen(world: Vector3) -> Vector2:
+	var viewport_point := _camera.unproject_position(world)
+	return global_position + viewport_point * size / Vector2(_viewport.size)
+
+
 func set_turned_away(away: bool) -> void:
 	if away == _turned_away:
 		return

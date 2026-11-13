@@ -114,6 +114,16 @@ func point_at_screen(point: Vector2, seconds := 1.0) -> void:
 	await tween.finished
 
 
+func is_head_at(point: Vector2) -> bool:
+	var radius := minf(size.x, size.y) * 0.36
+	var center := global_position + size / 2.0 + Vector2(walk_offset, 0)
+	return point.distance_to(center) < radius * 1.2
+
+
+func is_body_at(point: Vector2) -> bool:
+	return is_head_at(point)
+
+
 func set_turned_away(away: bool) -> void:
 	_turned_away = away
 	queue_redraw()

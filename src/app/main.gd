@@ -23,6 +23,7 @@ var _avatar_is_3d := false
 var _avatar_layer: Control
 var _room: RoomBackground
 var _interface_actions: InterfaceActions
+var _touch: TouchInteractions
 var _chat: ChatView
 var _name_pill: MoodBar
 var _status_label: Label
@@ -46,7 +47,6 @@ func _ready() -> void:
 	_build_overlay()
 	_build_services()
 	_rebuild_avatar()
-	_interface_actions.avatar = _avatar
 	_connect_signals()
 	_load_history_into_chat()
 	_refresh_header()
@@ -217,6 +217,9 @@ func _build_services() -> void:
 	_interface_actions.is_occupied = func() -> bool:
 		return Mood.blocked or _brain.is_thinking() or _input.has_focus() or _overlay.visible
 	add_child(_interface_actions)
+	_touch = TouchInteractions.new()
+	_touch.event_ready.connect(_on_touch_event)
+	add_child(_touch)
 	_voice = Voice.new()
 	add_child(_voice)
 
@@ -250,10 +253,12 @@ func _rebuild_avatar() -> void:
 		_avatar = avatar_2d
 		_avatar_is_3d = false
 
-	_avatar.touched.connect(_on_avatar_touched)
 	_avatar.set_turned_away(Mood.blocked)
 	if _interface_actions:
 		_interface_actions.avatar = _avatar
+	if _touch:
+		_touch.avatar = _avatar
+		_avatar.touched.connect(_touch.on_touched)
 
 
 func _connect_signals() -> void:
@@ -363,11 +368,12 @@ func _on_gift_chosen(gift_id: String) -> void:
 	_brain.send_event(for_ai, for_chat)
 
 
-## Por ahora tocarla solo la sorprende (sin gastar peticiones a la IA).
-## Aquí se conectarán en el futuro las caricias / golpes.
-func _on_avatar_touched() -> void:
-	_avatar.set_emotion("sorprendida")
-	_avatar.play_action("saltar")
+## Caricias o golpes terminados: la IA reacciona (si no está ocupada).
+func _on_touch_event(for_ai: String, for_chat: String) -> void:
+	if _brain.is_thinking():
+		return
+	_chat.add_message(ChatView.Sender.EVENT, for_chat)
+	_brain.send_event(for_ai, for_chat)
 
 
 func _announce_block(is_blocked: bool) -> void:

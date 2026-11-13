@@ -8,8 +8,8 @@ extends Control
 ## emotion: uno de AIReply.EMOTIONS
 ## action:  uno de AIReply.ACTIONS
 
-## Se emite cuando el usuario toca el avatar (base para interacciones futuras).
-signal touched
+## Se emite cuando el usuario toca el avatar. `point` es global (pantalla).
+signal touched(point: Vector2)
 
 
 func set_emotion(_emotion: String) -> void:
@@ -53,5 +53,15 @@ func _gui_input(event: InputEvent) -> void:
 	# defecto de Godot), así que basta con escuchar el clic.
 	var mouse := event as InputEventMouseButton
 	if mouse and mouse.pressed and mouse.button_index == MOUSE_BUTTON_LEFT:
-		touched.emit()
+		touched.emit(get_global_mouse_position())
 		accept_event()
+
+
+## ¿El punto (global) cae sobre su cabeza? Lo usan las caricias.
+func is_head_at(_point: Vector2) -> bool:
+	return false
+
+
+## ¿El punto (global) cae sobre su cuerpo? Fuera de él los toques se ignoran.
+func is_body_at(_point: Vector2) -> bool:
+	return true

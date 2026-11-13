@@ -66,6 +66,12 @@ func give_gift(gift_id: String) -> float:
 	return multiplier
 
 
+## Sube el enojo directamente (por ejemplo, si la golpeas estando bloqueada).
+func add_anger(amount: float) -> void:
+	anger = clampf(anger + amount, 0.0, 100.0)
+	_after_change()
+
+
 func block_threshold() -> float:
 	return float(_personality()["block_threshold"])
 
