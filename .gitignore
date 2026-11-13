@@ -1,0 +1,17 @@
+# Godot
+.godot/
+export/
+*.apk
+*.aab
+*.x86_64
+*.arm64
+
+# .NET (el editor mono crea estas carpetas aunque no usemos C#)
+.mono/
+data_*/
+mono_crash.*.json
+
+# Claves y configuración local (NUNCA subir)
+config.json
+*.keystore
+export_credentials.cfg
