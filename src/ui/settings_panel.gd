@@ -10,6 +10,7 @@ var _model: OptionButton
 var _companion_name: LineEdit
 var _user_name: LineEdit
 var _personality: OptionButton
+var _appearance: LineEdit
 var _voice_enabled: CheckButton
 var _avatar_3d: CheckButton
 var _voice_rate: HSlider
@@ -57,6 +58,10 @@ func _ready() -> void:
 		_personality.add_item(Personalities.fetch(id)["label"])
 	form.add_child(_personality)
 
+	_add_label(form, "Su apariencia (para sus fotos, en inglés)")
+	_appearance = LineEdit.new()
+	form.add_child(_appearance)
+
 	_avatar_3d = CheckButton.new()
 	_avatar_3d.text = "Avatar 3D (apágalo si va lento)"
 	form.add_child(_avatar_3d)
@@ -101,6 +106,7 @@ func load_values() -> void:
 	_user_name.text = str(Settings.get_value("user_name"))
 	var ids := Personalities.ids()
 	_personality.select(maxi(0, ids.find(str(Settings.get_value("personality")))))
+	_appearance.text = str(Settings.get_value("appearance"))
 	_avatar_3d.button_pressed = bool(Settings.get_value("avatar_3d"))
 	_voice_enabled.button_pressed = bool(Settings.get_value("voice_enabled"))
 	_voice_rate.value = float(Settings.get_value("voice_rate"))
@@ -109,12 +115,18 @@ func load_values() -> void:
 
 
 func _on_save_pressed() -> void:
-	Settings.set_value("api_key", _api_key.text.strip_edges())
+	var new_key := _api_key.text.strip_edges()
+	if new_key != str(Settings.get_value("api_key")):
+		# El agente de imágenes pertenece a la cuenta anterior.
+		Settings.set_value("image_agent_id", "")
+	Settings.set_value("api_key", new_key)
 	Settings.set_value("model", _model.get_item_text(_model.selected))
 	var name_text := _companion_name.text.strip_edges()
 	Settings.set_value("companion_name", name_text if not name_text.is_empty() else "Mia")
 	Settings.set_value("user_name", _user_name.text.strip_edges())
 	Settings.set_value("personality", Personalities.ids()[_personality.selected])
+	if not _appearance.text.strip_edges().is_empty():
+		Settings.set_value("appearance", _appearance.text.strip_edges())
 	Settings.set_value("avatar_3d", _avatar_3d.button_pressed)
 	Settings.set_value("voice_enabled", _voice_enabled.button_pressed)
 	Settings.set_value("voice_rate", _voice_rate.value)

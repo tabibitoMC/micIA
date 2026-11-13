@@ -5,7 +5,7 @@ extends RefCounted
 ## La IA siempre contesta con un JSON así (claves en español porque el prompt
 ## está en español):
 ## {"texto": "...", "emocion": "feliz", "accion": "saludar",
-##  "enojo": 0, "afecto": 2, "trato": "bueno", "recordar": ""}
+##  "enojo": 0, "afecto": 2, "trato": "bueno", "recordar": "", "imagen": ""}
 ##
 ## Esta clase lo valida: cualquier valor fuera de lo permitido se reemplaza
 ## por uno seguro, para que un error de la IA nunca rompa la app.
@@ -25,6 +25,8 @@ var anger_delta := 0
 var affection_delta := 0
 var treatment := "neutral"
 var remember := ""
+## Si no está vacío, ella quiere mandarte una imagen: descripción en inglés.
+var image_prompt := ""
 
 
 ## Convierte el texto devuelto por la IA en un AIReply. Devuelve null si no
@@ -47,6 +49,8 @@ static func from_text(raw: String) -> AIReply:
 	reply.affection_delta = _clamp_int(data.get("afecto", 0), AFFECTION_DELTA_RANGE)
 	var remember_value: Variant = data.get("recordar", "")
 	reply.remember = str(remember_value).strip_edges() if remember_value != null else ""
+	var image_value: Variant = data.get("imagen", "")
+	reply.image_prompt = str(image_value).strip_edges() if image_value != null else ""
 	return reply
 
 
@@ -61,6 +65,7 @@ func to_json_string() -> String:
 		"afecto": affection_delta,
 		"trato": treatment,
 		"recordar": remember,
+		"imagen": image_prompt,
 	})
 
 

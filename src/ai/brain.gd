@@ -8,9 +8,13 @@ extends Node
 signal reply_ready(reply: AIReply)
 signal failed(message: String)
 signal thinking_changed(is_thinking: bool)
+## Ella quiere mandar una imagen; `prompt` es la descripción (en inglés).
+signal image_requested(prompt: String)
 
 ## Cuántos mensajes anteriores se envían como contexto.
 const CONTEXT_MESSAGES := 16
+## Lado máximo de las fotos que se envían a la IA (menos datos, más rápido).
+const PHOTO_MAX_SIDE := 1024
 
 var _client: MistralClient
 var _pending_user_entry: Dictionary = {}
@@ -38,7 +42,26 @@ func send_event(for_ai: String, for_chat: String) -> void:
 	_ask(Memory.make_entry("user", "[EVENTO] " + for_ai, for_chat, Memory.KIND_EVENT))
 
 
-func _ask(user_entry: Dictionary) -> void:
+## Foto enviada por el usuario. La IA la ve solo en este mensaje; en el
+## historial queda guardada como texto "[FOTO] ..." (las imágenes pesan mucho
+## para reenviarlas siempre) y la foto en sí en user://photos.
+## Devuelve la ruta donde se guardó la foto (para mostrarla en el chat).
+func send_photo(image: Image, caption: String) -> String:
+	var small := ImageUtils.shrink(image, PHOTO_MAX_SIDE)
+	var saved_path := ImageUtils.save_to(ImageUtils.PHOTOS_DIR, small)
+	var text := caption if not caption.is_empty() else "Te mando esta foto."
+	var api_content := [
+		{"type": "text", "text": text},
+		{"type": "image_url", "image_url": ImageUtils.to_jpeg_data_url(small)},
+	]
+	var entry := Memory.make_entry("user", "[FOTO] " + text, caption, Memory.KIND_MESSAGE, saved_path)
+	_ask(entry, api_content)
+	return saved_path
+
+
+## user_entry: lo que se guarda en el historial.
+## api_content: lo que se envía ahora a la IA (si es distinto, p. ej. con foto).
+func _ask(user_entry: Dictionary, api_content: Variant = null) -> void:
 	if _client.is_busy():
 		failed.emit("Espera, todavía está pensando.")
 		return
@@ -49,7 +72,7 @@ func _ask(user_entry: Dictionary) -> void:
 	_pending_user_entry = user_entry
 	var messages: Array = [{"role": "system", "content": _system_prompt()}]
 	messages.append_array(Memory.recent_for_api(CONTEXT_MESSAGES))
-	messages.append({"role": "user", "content": user_entry["content"]})
+	messages.append({"role": "user", "content": api_content if api_content != null else user_entry["content"]})
 
 	thinking_changed.emit(true)
 	_client.chat(messages, str(Settings.get_value("api_key")), str(Settings.get_value("model")))
@@ -60,6 +83,7 @@ func _system_prompt() -> String:
 		"companion_name": str(Settings.get_value("companion_name")),
 		"user_name": Settings.user_display_name(),
 		"personality": Personalities.fetch(str(Settings.get_value("personality"))),
+		"appearance": str(Settings.get_value("appearance")),
 		"mood_description": Mood.describe_for_prompt(),
 		"treatment_summary": Mood.treatment_summary(),
 		"facts": Memory.facts,
@@ -83,6 +107,8 @@ func _on_completed(content: String) -> void:
 		Memory.add_fact(reply.remember)
 	Mood.apply_reply(reply)
 	reply_ready.emit(reply)
+	if not reply.image_prompt.is_empty():
+		image_requested.emit(reply.image_prompt)
 
 
 func _on_failed(message: String) -> void:

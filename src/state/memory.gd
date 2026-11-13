@@ -15,7 +15,8 @@ const KIND_EVENT := "event"
 
 ## Cada entrada:
 ## {"role": "user"|"assistant", "content": lo que se envía a la IA,
-##  "display": lo que se muestra en el chat, "kind": KIND_MESSAGE|KIND_EVENT}
+##  "display": lo que se muestra en el chat, "kind": KIND_MESSAGE|KIND_EVENT,
+##  "image": ruta en user:// de una foto/imagen adjunta (opcional)}
 var history: Array = []
 ## Datos sobre el usuario que la IA pidió recordar.
 var facts: Array = []
@@ -34,8 +35,21 @@ func add_exchange(user_entry: Dictionary, assistant_entry: Dictionary) -> void:
 	JsonStore.save_json(HISTORY_PATH, history)
 
 
-func make_entry(role: String, content: String, display: String, kind := KIND_MESSAGE) -> Dictionary:
-	return {"role": role, "content": content, "display": display, "kind": kind}
+func make_entry(role: String, content: String, display: String, kind := KIND_MESSAGE, image := "") -> Dictionary:
+	var entry := {"role": role, "content": content, "display": display, "kind": kind}
+	if not image.is_empty():
+		entry["image"] = image
+	return entry
+
+
+## Adjunta una imagen a la última respuesta de ella (las imágenes generadas
+## llegan después del texto).
+func attach_image_to_last_reply(image_path: String) -> void:
+	for i in range(history.size() - 1, -1, -1):
+		if history[i].get("role") == "assistant":
+			history[i]["image"] = image_path
+			JsonStore.save_json(HISTORY_PATH, history)
+			return
 
 
 ## Últimos `count` mensajes en el formato de la API. Siempre empieza con un

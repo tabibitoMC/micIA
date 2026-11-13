@@ -13,7 +13,7 @@ Proyecto personal de una asistente / amiga con IA. No lo voy a comercializar ni 
 | 1 | Chat con Mistral, respuestas JSON (texto + emoción + acción), memoria, personalidades, enojo/afecto, bloqueo, regalos, voz (TTS del sistema) | ✅ |
 | 2 | Avatar 3D (VRM) con expresiones, parpadeo, boca al hablar y gestos; interfaz pastel | ✅ (cara 2D como respaldo) |
 | 3 | Animaciones, moverse por la interfaz y tocar botones | ⏳ |
-| 4 | Enviarle fotos, generar imágenes | ⏳ |
+| 4 | Enviarle fotos (las ve con visión de Mistral) y que ella genere imágenes/selfies | ✅ |
 | Futuro | Personalidad adaptativa según cómo la tratas | base lista (`Mood.recent_treatment`) |
 
 ## Estructura
@@ -21,9 +21,11 @@ Proyecto personal de una asistente / amiga con IA. No lo voy a comercializar ni 
 ```
 src/
   app/      main.tscn + main.gd   → pantalla principal; solo conecta las piezas
-  core/     settings.gd (autoload Settings), json_store.gd
+  core/     settings.gd (autoload Settings), json_store.gd, image_utils.gd
   ai/       brain.gd              → arma la conversación y llama a Mistral
-            mistral_client.gd     → HTTP a /v1/chat/completions
+            mistral_api.gd        → capa HTTP común (reintentos, errores)
+            mistral_client.gd     → chat (/v1/chat/completions, con visión)
+            image_generator.gd    → imágenes (Agents API + image_generation)
             ai_reply.gd           → valida el JSON que devuelve la IA
             prompt_builder.gd     → construye el prompt de sistema
             personalities.gd      → catálogo de personalidades
@@ -37,7 +39,8 @@ src/
             vrm/vrm_expression_mixer.gd → mezcla expresiones (emoción + parpadeo + boca)
             vrm/vrm_body_poser.gd       → pose y gestos procedurales (sin archivos de animación)
   ui/       chat_view, mood_bar, side_button, block_card, room_background,
-            settings_panel, gift_panel, ui_style (paleta y estilos)
+            settings_panel, gift_panel, photo_picker, image_viewer,
+            ui_style (paleta y estilos)
 addons/     godot-vrm y MToon (V-Sekai, MIT): importan los .vrm
 assets/models/companion.vrm → el modelo de ella
 ```
@@ -46,6 +49,11 @@ Las reglas que sigue el código:
 - **La IA solo propone; el código decide.** Mistral devuelve un JSON con emoción, acción y cuánto cambiar el enojo o el afecto; `AIReply` lo valida y `Mood` aplica los límites.
 - **Cada pieza emite señales y no conoce la interfaz.** `main.gd` es el único que las conecta.
 - **Todo avatar implementa `Avatar`** (`set_emotion`, `play_action`, `set_talking`), así el 2D se cambia por el 3D sin tocar el resto.
+
+## Fotos e imágenes
+
+- **Mandarle fotos:** botón "Foto". Lo que tengas escrito en la caja se envía como pie de foto. Ella la ve con un modelo con visión (`mistral-small-latest` la tiene).
+- **Imágenes de ella:** cuando le pides un dibujo o una selfie, la IA llena el campo `imagen` y la app la genera con la herramienta `image_generation` de Mistral (agente creado automáticamente). Para que sus selfies se parezcan a ella, ajusta **"Su apariencia"** en Ajustes. No está confirmado que esta herramienta funcione en el plan gratuito; si no, verás el error en el chat.
 
 ## Cambiar el modelo
 

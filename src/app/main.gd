@@ -15,6 +15,8 @@ const HISTORY_ON_SCREEN := 40
 const CHAT_HEIGHT_RATIO := 0.36
 
 var _brain: Brain
+var _image_generator: ImageGenerator
+var _photo_picker: PhotoPicker
 var _voice: Voice
 var _avatar: Avatar
 var _avatar_is_3d := false
@@ -25,12 +27,14 @@ var _status_label: Label
 var _input_row: Control
 var _input: LineEdit
 var _send_button: Button
+var _photo_button: Button
 var _gift_button: SideButton
 var _keyboard_spacer: Control
 var _block_card: BlockCard
 var _overlay: ColorRect
 var _settings_panel: SettingsPanel
 var _gift_panel: GiftPanel
+var _image_viewer: ImageViewer
 
 
 func _ready() -> void:
@@ -153,6 +157,12 @@ func _build_side_buttons() -> Control:
 func _build_input_row() -> Control:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 8)
+	_photo_button = Button.new()
+	_photo_button.text = "Foto"
+	_photo_button.tooltip_text = "Mandarle una foto"
+	_photo_button.custom_minimum_size = Vector2(64, 50)
+	UIStyle.style_button(_photo_button, UIStyle.ButtonKind.SECONDARY)
+	row.add_child(_photo_button)
 	_input = LineEdit.new()
 	_input.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_input.custom_minimum_size = Vector2(0, 50)
@@ -185,10 +195,18 @@ func _build_overlay() -> void:
 	_gift_panel.visible = false
 	center.add_child(_gift_panel)
 
+	_image_viewer = ImageViewer.new()
+	_image_viewer.visible = false
+	center.add_child(_image_viewer)
+
 
 func _build_services() -> void:
 	_brain = Brain.new()
 	add_child(_brain)
+	_image_generator = ImageGenerator.new()
+	add_child(_image_generator)
+	_photo_picker = PhotoPicker.new()
+	add_child(_photo_picker)
 	_voice = Voice.new()
 	add_child(_voice)
 
@@ -229,10 +247,18 @@ func _connect_signals() -> void:
 	_send_button.pressed.connect(_on_send)
 	_input.text_submitted.connect(func(_text: String): _on_send())
 	_gift_button.pressed.connect(_open_gifts)
+	_photo_button.pressed.connect(_photo_picker.open)
+	_photo_picker.photo_chosen.connect(_on_photo_chosen)
+	_photo_picker.failed.connect(_on_brain_failed)
+	_chat.image_tapped.connect(_open_image_viewer)
+	_image_viewer.closed.connect(_close_overlay)
 
 	_brain.reply_ready.connect(_on_reply)
 	_brain.failed.connect(_on_brain_failed)
 	_brain.thinking_changed.connect(func(_thinking: bool): _refresh_input_state())
+	_brain.image_requested.connect(_on_image_requested)
+	_image_generator.generated.connect(_on_image_generated)
+	_image_generator.failed.connect(_on_image_failed)
 
 	_voice.speaking_started.connect(func(): _avatar.set_talking(true))
 	_voice.speaking_finished.connect(func(): _avatar.set_talking(false))
@@ -258,6 +284,32 @@ func _on_send() -> void:
 	_input.clear()
 	_chat.add_message(ChatView.Sender.USER, text)
 	_brain.send_message(text)
+
+
+func _on_photo_chosen(image: Image) -> void:
+	if Mood.blocked or _brain.is_thinking():
+		_chat.add_message(ChatView.Sender.SYSTEM, "Ahora no puede ver fotos.")
+		return
+	var caption := _input.text.strip_edges()
+	_input.clear()
+	var path := _brain.send_photo(image, caption)
+	_chat.add_image(ChatView.Sender.USER, path, caption)
+
+
+func _on_image_requested(prompt: String) -> void:
+	_image_generator.generate(prompt)
+	_refresh_input_state()
+
+
+func _on_image_generated(image_path: String) -> void:
+	Memory.attach_image_to_last_reply(image_path)
+	_chat.add_image(ChatView.Sender.COMPANION, image_path)
+	_refresh_input_state()
+
+
+func _on_image_failed(message: String) -> void:
+	_chat.add_message(ChatView.Sender.SYSTEM, message)
+	_refresh_input_state()
 
 
 func _on_reply(reply: AIReply) -> void:
@@ -328,11 +380,18 @@ func _refresh_input_state() -> void:
 	var companion := str(Settings.get_value("companion_name"))
 	_input_row.visible = not Mood.blocked
 	_block_card.visible = Mood.blocked
+	var drawing := _image_generator.is_busy()
 	_send_button.disabled = thinking
+	_photo_button.disabled = thinking
 	_gift_button.set_disabled(thinking)
 	_input.placeholder_text = "Escríbele a %s..." % companion
-	_status_label.text = "%s está escribiendo..." % companion if thinking else ""
-	_status_label.visible = thinking
+	if thinking:
+		_status_label.text = "%s está escribiendo..." % companion
+	elif drawing:
+		_status_label.text = "%s está preparando una imagen..." % companion
+	else:
+		_status_label.text = ""
+	_status_label.visible = thinking or drawing
 
 
 func _on_resized() -> void:
@@ -344,7 +403,14 @@ func _load_history_into_chat() -> void:
 	for i in range(start, Memory.history.size()):
 		var entry: Dictionary = Memory.history[i]
 		var display := str(entry.get("display", ""))
-		if entry.get("kind") == Memory.KIND_EVENT:
+		var sender := ChatView.Sender.USER if entry.get("role") == "user" else ChatView.Sender.COMPANION
+		if entry.has("image"):
+			if sender == ChatView.Sender.COMPANION:
+				_chat.add_message(sender, display)
+				_chat.add_image(sender, str(entry["image"]))
+			else:
+				_chat.add_image(sender, str(entry["image"]), display)
+		elif entry.get("kind") == Memory.KIND_EVENT:
 			_chat.add_message(ChatView.Sender.EVENT, display)
 		elif entry.get("role") == "user":
 			_chat.add_message(ChatView.Sender.USER, display)
@@ -368,10 +434,19 @@ func _open_gifts() -> void:
 	_overlay.visible = true
 
 
+func _open_image_viewer(texture: Texture2D) -> void:
+	_settings_panel.visible = false
+	_gift_panel.visible = false
+	_image_viewer.show_texture(texture, get_viewport_rect().size * 0.92)
+	_image_viewer.visible = true
+	_overlay.visible = true
+
+
 func _close_overlay() -> void:
 	_overlay.visible = false
 	_settings_panel.visible = false
 	_gift_panel.visible = false
+	_image_viewer.visible = false
 
 
 ## En Android, deja espacio para que el teclado no tape la caja de texto.

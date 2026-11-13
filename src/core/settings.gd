@@ -22,6 +22,10 @@ const DEFAULTS := {
 	"voice_rate": 1.0,
 	"voice_pitch": 1.2,
 	"ui_scale": 1.0,
+	## Cómo es ella físicamente (se usa en sus selfies y para que se describa bien).
+	"appearance": "anime girl with very long straight blonde hair, a braid on one side, a big dark navy ribbon on her head, big blue eyes, white sleeveless dress with light blue details and long white sleeves",
+	## Interno: id del agente de Mistral que genera imágenes (se crea solo).
+	"image_agent_id": "",
 }
 
 ## Modelos de Mistral que se ofrecen en Ajustes.
