@@ -64,6 +64,7 @@ Las reglas que sigue el código:
   2. **AI Horde** (gratis, funciona sin cuenta; con cuenta propia va más rápido).
   3. **Mistral** (si tu plan lo incluye).
   Para que sus selfies se parezcan a ella, ajusta **"Su apariencia"** en Ajustes.
+- **Generar tú una imagen:** botón lateral "Imagen". Escribes la descripción y eliges **Cloudflare** o **Comunitaria (AI Horde)**; si la elegida falla se usa la otra. La imagen se le envía a ella (visión de Mistral) para que la vea y opine.
 
 ## Relación y confianza
 

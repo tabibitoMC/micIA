@@ -2,12 +2,18 @@ class_name ImageGenerator
 extends Node
 ## Genera imágenes probando varios servicios gratuitos en orden:
 ##   1. Cloudflare Workers AI (si pusiste Account ID y token en Ajustes)
-##   2. AI Horde (funciona sin cuenta)
+##   2. AI Horde, "comunitaria" (funciona sin cuenta)
 ##   3. Mistral (si tu plan lo permite)
-## Si uno falla (cuota, error, cola), pasa al siguiente.
+## Se puede pedir un servicio preferido; si falla, pasa a los demás.
+##
+## origin: quién pidió la imagen ("companion" = ella, "user" = tú con el botón).
 
-signal generated(image_path: String)
-signal failed(message: String)
+signal generated(image_path: String, prompt: String, origin: String)
+signal failed(message: String, origin: String)
+
+const PROVIDER_CLOUDFLARE := "cloudflare"
+const PROVIDER_HORDE := "horde"
+const PROVIDER_MISTRAL := "mistral"
 
 var _web: WebRequest
 var _busy := false
@@ -22,27 +28,40 @@ func is_busy() -> bool:
 	return _busy
 
 
-func generate(prompt: String) -> void:
+func generate(prompt: String, preferred := "", origin := "companion") -> void:
 	if _busy:
-		failed.emit("Ya estoy generando una imagen.")
+		failed.emit("Ya hay una imagen generándose.", origin)
 		return
 	_busy = true
-	var result := await _generate(prompt)
+	var result := await _generate(prompt, preferred)
 	_busy = false
 	if result.begins_with("user://"):
-		generated.emit(result)
+		generated.emit(result, prompt, origin)
 	else:
-		failed.emit(result)
+		failed.emit(result, origin)
 
 
-static func _providers() -> Array[ImageProvider]:
-	return [CloudflareImageProvider.new(), HordeImageProvider.new(), MistralImageProvider.new()]
+## Proveedores en orden; el preferido (si se indica) va primero.
+static func _providers(preferred := "") -> Array[ImageProvider]:
+	var by_id := {
+		PROVIDER_CLOUDFLARE: CloudflareImageProvider.new(),
+		PROVIDER_HORDE: HordeImageProvider.new(),
+		PROVIDER_MISTRAL: MistralImageProvider.new(),
+	}
+	var order: Array = [PROVIDER_CLOUDFLARE, PROVIDER_HORDE, PROVIDER_MISTRAL]
+	if by_id.has(preferred):
+		order.erase(preferred)
+		order.push_front(preferred)
+	var list: Array[ImageProvider] = []
+	for id in order:
+		list.append(by_id[id])
+	return list
 
 
 ## Devuelve la ruta de la imagen guardada o un mensaje con los errores.
-func _generate(prompt: String) -> String:
+func _generate(prompt: String, preferred: String) -> String:
 	var errors: PackedStringArray = []
-	for provider in _providers():
+	for provider in _providers(preferred):
 		if not provider.is_configured():
 			continue
 		var result: Dictionary = await provider.generate(_web, prompt)

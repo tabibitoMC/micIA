@@ -5,7 +5,7 @@ extends VBoxContainer
 
 signal pressed
 
-enum Icon { GIFT, GEAR, HEART }
+enum Icon { GIFT, GEAR, HEART, PICTURE }
 
 const TILE_SIZE := 54.0
 
@@ -87,6 +87,16 @@ func _draw_icon() -> void:
 				_icon_canvas.draw_line(c, c + Vector2(cos(a), sin(a)) * s * 1.2, UIStyle.PLUM_DIM, s * 0.45)
 			_icon_canvas.draw_circle(c, s * 0.9, UIStyle.PLUM_DIM)
 			_icon_canvas.draw_circle(c, s * 0.4, UIStyle.PINK_SOFT)
+		Icon.PICTURE:
+			var frame := Rect2(c + Vector2(-s * 1.15, -s * 0.9), Vector2(s * 2.3, s * 1.8))
+			_icon_canvas.draw_rect(frame, UIStyle.WHITE)
+			_icon_canvas.draw_rect(frame.grow(-s * 0.15), Color("9fd2f5"))
+			_icon_canvas.draw_colored_polygon(PackedVector2Array([
+				c + Vector2(-s, s * 0.75), c + Vector2(-s * 0.2, -s * 0.15), c + Vector2(s * 0.3, s * 0.4),
+				c + Vector2(s * 0.6, s * 0.1), c + Vector2(s, s * 0.75),
+			]), UIStyle.PINK)
+			_icon_canvas.draw_circle(c + Vector2(s * 0.5, -s * 0.4), s * 0.22, Color("ffd54f"))
+			_icon_canvas.draw_rect(frame, UIStyle.PLUM_DIM, false, 2.0)
 		Icon.HEART:
 			_icon_canvas.draw_circle(c + Vector2(-s * 0.5, -s * 0.2), s * 0.6, UIStyle.AFFECTION)
 			_icon_canvas.draw_circle(c + Vector2(s * 0.5, -s * 0.2), s * 0.6, UIStyle.AFFECTION)

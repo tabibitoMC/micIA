@@ -39,6 +39,7 @@ var _overlay: ColorRect
 var _settings_panel: SettingsPanel
 var _gift_panel: GiftPanel
 var _image_viewer: ImageViewer
+var _image_request_panel: ImageRequestPanel
 
 
 func _ready() -> void:
@@ -155,6 +156,10 @@ func _build_side_buttons() -> Control:
 	_gift_button = SideButton.new(SideButton.Icon.GIFT, "Regalo")
 	column.add_child(_gift_button)
 
+	var image_button := SideButton.new(SideButton.Icon.PICTURE, "Imagen")
+	image_button.pressed.connect(_open_image_request)
+	column.add_child(image_button)
+
 	var settings_button := SideButton.new(SideButton.Icon.GEAR, "Ajustes")
 	settings_button.pressed.connect(_open_settings)
 	column.add_child(settings_button)
@@ -201,6 +206,10 @@ func _build_overlay() -> void:
 	_gift_panel = GiftPanel.new()
 	_gift_panel.visible = false
 	center.add_child(_gift_panel)
+
+	_image_request_panel = ImageRequestPanel.new()
+	_image_request_panel.visible = false
+	center.add_child(_image_request_panel)
 
 	_image_viewer = ImageViewer.new()
 	_image_viewer.visible = false
@@ -291,6 +300,8 @@ func _connect_signals() -> void:
 	_photo_picker.failed.connect(_on_brain_failed)
 	_chat.image_tapped.connect(_open_image_viewer)
 	_image_viewer.closed.connect(_close_overlay)
+	_image_request_panel.closed.connect(_close_overlay)
+	_image_request_panel.requested.connect(_on_user_image_requested)
 
 	_brain.reply_ready.connect(_on_reply)
 	_brain.failed.connect(_on_brain_failed)
@@ -338,18 +349,43 @@ func _on_photo_chosen(image: Image) -> void:
 	_chat.add_image(ChatView.Sender.USER, path, caption)
 
 
+## Ella quiere mandarte una imagen (su respuesta trae el campo "imagen").
 func _on_image_requested(prompt: String) -> void:
-	_image_generator.generate(prompt)
+	_image_generator.generate(prompt, "", "companion")
 	_refresh_input_state()
 
 
-func _on_image_generated(image_path: String) -> void:
-	Memory.attach_image_to_last_reply(image_path)
-	_chat.add_image(ChatView.Sender.COMPANION, image_path)
+## Tú pides una imagen con el botón "Imagen".
+func _on_user_image_requested(prompt: String, provider: String) -> void:
+	_close_overlay()
+	_image_generator.generate(prompt, provider, "user")
 	_refresh_input_state()
 
 
-func _on_image_failed(message: String) -> void:
+func _on_image_generated(image_path: String, prompt: String, origin: String) -> void:
+	if origin == "companion":
+		# Su respuesta ya guarda la descripción ("imagen") en el historial,
+		# así ella sabe qué te mandó.
+		Memory.attach_image_to_last_reply(image_path)
+		_chat.add_image(ChatView.Sender.COMPANION, image_path)
+	else:
+		_share_generated_image(image_path, prompt)
+	_refresh_input_state()
+
+
+## La imagen que generaste se le envía a ella (visión de Mistral) para que la
+## vea y opine. Si está ocupada o bloqueada, solo se muestra en el chat.
+func _share_generated_image(image_path: String, prompt: String) -> void:
+	var image := ImageUtils.load_any(image_path)
+	var caption := "Generé esta imagen con IA: \"%s\"" % prompt
+	if image == null or Mood.blocked or _brain.is_thinking():
+		_chat.add_image(ChatView.Sender.USER, image_path, caption)
+		return
+	var path := _brain.send_photo(image, caption)
+	_chat.add_image(ChatView.Sender.USER, path, caption)
+
+
+func _on_image_failed(message: String, _origin: String) -> void:
 	_chat.add_message(ChatView.Sender.SYSTEM, message)
 	_refresh_input_state()
 
@@ -456,7 +492,7 @@ func _refresh_input_state() -> void:
 	if thinking:
 		_status_label.text = "%s está escribiendo..." % companion
 	elif drawing:
-		_status_label.text = "%s está preparando una imagen..." % companion
+		_status_label.text = "Generando imagen..."
 	else:
 		_status_label.text = ""
 	_status_label.visible = thinking or drawing
@@ -491,6 +527,8 @@ func _open_settings() -> void:
 	_settings_panel.custom_minimum_size = Vector2(minf(view.x - 30.0, 440.0), minf(view.y - 60.0, 680.0))
 	_settings_panel.load_values()
 	_gift_panel.visible = false
+	_image_request_panel.visible = false
+	_image_viewer.visible = false
 	_settings_panel.visible = true
 	_overlay.visible = true
 
@@ -498,13 +536,26 @@ func _open_settings() -> void:
 func _open_gifts() -> void:
 	_gift_panel.custom_minimum_size = Vector2(minf(get_viewport_rect().size.x - 60.0, 320.0), 0)
 	_settings_panel.visible = false
+	_image_request_panel.visible = false
+	_image_viewer.visible = false
 	_gift_panel.visible = true
+	_overlay.visible = true
+
+
+func _open_image_request() -> void:
+	_image_request_panel.custom_minimum_size = Vector2(minf(get_viewport_rect().size.x - 40.0, 400.0), 0)
+	_settings_panel.visible = false
+	_gift_panel.visible = false
+	_image_viewer.visible = false
+	_image_request_panel.visible = false
+	_image_request_panel.visible = true
 	_overlay.visible = true
 
 
 func _open_image_viewer(texture: Texture2D) -> void:
 	_settings_panel.visible = false
 	_gift_panel.visible = false
+	_image_request_panel.visible = false
 	_image_viewer.show_texture(texture, get_viewport_rect().size * 0.92)
 	_image_viewer.visible = true
 	_overlay.visible = true
