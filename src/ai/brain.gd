@@ -33,7 +33,8 @@ func is_thinking() -> bool:
 
 ## Mensaje escrito por el usuario.
 func send_message(text: String) -> void:
-	_ask(Memory.make_entry("user", text, text, Memory.KIND_MESSAGE))
+	# Los mods pueden modificar lo que se envía (lo que se ve en el chat no cambia).
+	_ask(Memory.make_entry("user", Mods.filter_user_message(text), text, Memory.KIND_MESSAGE))
 
 
 ## Algo que pasó en la app (regalo, desbloqueo...). `for_ai` es la descripción
@@ -90,6 +91,7 @@ func _system_prompt() -> String:
 		"mood_description": Mood.describe_for_prompt(),
 		"treatment_summary": Mood.treatment_summary(),
 		"facts": Memory.facts,
+		"mods_prompt": Mods.extra_prompt(),
 	})
 
 
@@ -110,6 +112,7 @@ func _on_completed(content: String) -> void:
 		Memory.add_fact(reply.remember)
 	Mood.apply_reply(reply)
 	Relationship.apply_reply(reply, Personalities.fetch(str(Settings.get_value("personality"))))
+	Mods.notify_reply(reply)
 	reply_ready.emit(reply)
 	if not reply.image_prompt.is_empty():
 		image_requested.emit(reply.image_prompt)

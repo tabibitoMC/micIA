@@ -33,7 +33,7 @@ func refresh() -> void:
 	for child in _list.get_children():
 		child.queue_free()
 	var current := str(Settings.current_outfit()["id"])
-	for outfit in Settings.character().get("outfits", []):
+	for outfit in Characters.outfits(str(Settings.get_value("character"))):
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 10)
 		var swatch := ColorRect.new()

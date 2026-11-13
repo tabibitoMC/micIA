@@ -25,6 +25,8 @@ var _room: RoomBackground
 var _interface_actions: InterfaceActions
 var _touch: TouchInteractions
 var _current_character := ""
+var _side_column: VBoxContainer
+var _mod_panel: Control
 var _chat: ChatView
 var _name_pill: MoodBar
 var _status_label: Label
@@ -46,6 +48,8 @@ var _outfit_panel: OutfitPanel
 
 func _ready() -> void:
 	theme = UIStyle.make_theme()
+	# Los mods registran su contenido antes de que se arme la interfaz.
+	Mods.load_all(ModApi.new(self))
 	get_tree().quit_on_go_back = false
 	_build_layers()
 	_build_overlay()
@@ -58,6 +62,9 @@ func _ready() -> void:
 	_refresh_input_state()
 	resized.connect(_on_resized)
 	_on_resized()
+	Mods.app_ready()
+	for error in Mods.errors:
+		_chat.add_message(ChatView.Sender.SYSTEM, "Mod: " + error)
 	if not Settings.has_api_key():
 		_chat.add_message(ChatView.Sender.SYSTEM, "Primero pon tu API key de Mistral en Ajustes.")
 		_open_settings()
@@ -154,6 +161,7 @@ func _build_side_buttons() -> Control:
 	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	column.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	column.add_theme_constant_override("separation", 10)
+	_side_column = column
 
 	_gift_button = SideButton.new(SideButton.Icon.GIFT, "Regalo")
 	column.add_child(_gift_button)
@@ -310,6 +318,7 @@ func _rebuild_avatar() -> void:
 	if _touch:
 		_touch.avatar = _avatar
 		_avatar.touched.connect(_touch.on_touched)
+	_avatar.touched.connect(Mods.notify_touch)
 
 
 func _connect_signals() -> void:
@@ -486,6 +495,7 @@ func _announce_block(is_blocked: bool) -> void:
 # --- Estado de la interfaz -------------------------------------------------
 
 func _on_settings_changed() -> void:
+	Mods.notify_settings_changed()
 	_room.set_room_theme(str(Settings.get_value("room_theme")))
 	var character := str(Settings.get_value("character"))
 	if character != _current_character:
@@ -620,13 +630,29 @@ func _on_outfit_chosen(outfit_id: String) -> void:
 		_brain.send_event("%s te cambió la ropa al conjunto \"%s\"." % [Settings.user_display_name(), label], for_chat)
 
 
+## Ventana de un mod (ModApi.open_panel).
+func show_mod_panel(panel: Control) -> void:
+	_hide_panels()
+	if _mod_panel and _mod_panel != panel:
+		_mod_panel.get_parent().remove_child(_mod_panel)
+	_mod_panel = panel
+	if panel.get_parent() == null:
+		_overlay.get_child(0).add_child(panel)
+	panel.visible = true
+	_overlay.visible = true
+
+
 func _hide_panels() -> void:
+	if _mod_panel:
+		_mod_panel.visible = false
 	_settings_panel.visible = false
 	_gift_panel.visible = false
 	_image_viewer.visible = false
 	_image_request_panel.visible = false
 	_game_panel.visible = false
 	_outfit_panel.visible = false
+	if _mod_panel:
+		_mod_panel.visible = false
 
 
 func _open_image_request() -> void:
@@ -651,6 +677,8 @@ func _open_image_viewer(texture: Texture2D) -> void:
 func _close_overlay() -> void:
 	_overlay.visible = false
 	_overlay.color = Color(0.25, 0.08, 0.18, 0.45)
+	if _mod_panel:
+		_mod_panel.visible = false
 	_game_panel.visible = false
 	_outfit_panel.visible = false
 	_settings_panel.visible = false

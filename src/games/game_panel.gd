@@ -16,7 +16,11 @@ static func games() -> Array:
 		["Piedra, papel o tijera", RockPaperScissorsGame],
 		["Ajedrez", ChessGame],
 		["Ping-pong", PingPongGame],
-	]
+	] + extra_games
+
+
+## Juegos añadidos por mods: [nombre, script que extiende MiniGame].
+static var extra_games: Array = []
 
 var _ai: GameAI
 var _menu: VBoxContainer

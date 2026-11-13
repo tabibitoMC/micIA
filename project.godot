@@ -26,6 +26,7 @@ Settings="*res://src/core/settings.gd"
 Memory="*res://src/state/memory.gd"
 Mood="*res://src/state/mood.gd"
 Relationship="*res://src/state/relationship.gd"
+Mods="*res://src/mods/mod_loader.gd"
 
 [display]
 

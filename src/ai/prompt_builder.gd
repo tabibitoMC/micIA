@@ -31,6 +31,8 @@ static func build_system_prompt(context: Dictionary) -> String:
 	if not facts.is_empty():
 		parts.append("COSAS QUE RECUERDAS DE ÉL:\n- " + "\n- ".join(PackedStringArray(facts)))
 
+	if not str(context.get("mods_prompt", "")).is_empty():
+		parts.append("EXTRAS (mods):\n" + str(context["mods_prompt"]))
 	parts.append(_rules())
 	parts.append(_format_instructions())
 	return "\n\n".join(parts)

@@ -116,6 +116,15 @@ func _ready() -> void:
 	_horde_key.secret = true
 	form.add_child(_horde_key)
 
+	_add_title_small(form, "Mods")
+	var mods_label := Label.new()
+	var loaded := Mods.info_list()
+	mods_label.text = ("Cargados: " + ", ".join(loaded)) if not loaded.is_empty() else "Ningún mod cargado. Mira mods/README.md para crear uno."
+	mods_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	mods_label.add_theme_font_size_override("font_size", 12)
+	mods_label.add_theme_color_override("font_color", UIStyle.PLUM_DIM)
+	form.add_child(mods_label)
+
 	_clear_button = Button.new()
 	_clear_button.text = "Borrar memoria y reiniciar ánimo"
 	UIStyle.style_button(_clear_button, UIStyle.ButtonKind.SECONDARY)

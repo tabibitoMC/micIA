@@ -18,6 +18,7 @@ Proyecto personal de una asistente / amiga con IA. No lo voy a comercializar ni 
 | Relación | Confianza (termómetro), rencor, estados temporales (feliz, triste, enojada, dolida, distante, lasciva), pareja, reacciones a comentarios subidos de tono según personalidad | ✅ |
 | Minijuegos | Tres en raya, piedra-papel-tijera y ajedrez (Mistral elige entre jugadas legales y comenta) y ping-pong (IA local, Mistral comenta el resultado) | ✅ |
 | Vestuario | Botón "Ropa": conjuntos por personaje (variantes de color o .vrm extra hechos en VRoid); ella se entera del cambio | ✅ |
+| Mods | Carpeta `mods/` (y `user://mods/`) con ganchos y API para extender la app sin tocar el código principal; ver `mods/README.md` | ✅ |
 | Personajes | Vita (adulta, CC0) y Alicia (solo amistad, sin romance ni +18) con datos separados | ✅ |
 
 ## Estructura
@@ -51,6 +52,8 @@ src/
             ui_style (paleta y estilos)
   games/    mini_game.gd (base), game_ai.gd (Mistral juega), game_panel.gd (menú)
             tic_tac_toe, rock_paper_scissors, ping_pong, chess/ (chess_rules + chess_game)
+  mods/     mic_mod.gd (base), mod_api.gd (lo que un mod puede hacer), mod_loader.gd (autoload Mods)
+mods/       tus mods (plantilla en mods/_plantilla, guía en mods/README.md)
 addons/     godot-vrm y MToon (V-Sekai, MIT): importan los .vrm
 assets/models/ → vita.vrm, alicia.vrm
 ```

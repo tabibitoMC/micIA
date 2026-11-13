@@ -49,9 +49,31 @@ const DATA := {
 }
 
 
+## Personajes y conjuntos añadidos por mods (ver ModApi).
+static var extra := {}
+static var extra_outfits := {}
+
+
+static func register(id: String, data: Dictionary) -> void:
+	extra[id] = data
+
+
+static func register_outfit(character_id: String, outfit: Dictionary) -> void:
+	if not extra_outfits.has(character_id):
+		extra_outfits[character_id] = []
+	extra_outfits[character_id].append(outfit)
+
+
+## Conjuntos del personaje (los suyos + los de mods).
+static func outfits(character_id: String) -> Array:
+	var list: Array = fetch(character_id).get("outfits", [{"id": "original", "label": "Original"}]).duplicate()
+	list.append_array(extra_outfits.get(character_id, []))
+	return list
+
+
 ## Conjunto por id (o el primero si no existe).
 static func outfit(character_id: String, outfit_id: String) -> Dictionary:
-	var outfits: Array = fetch(character_id).get("outfits", [{"id": "original", "label": "Original"}])
+	var outfits: Array = outfits(character_id)
 	for entry in outfits:
 		if entry["id"] == outfit_id:
 			return entry
@@ -59,10 +81,12 @@ static func outfit(character_id: String, outfit_id: String) -> Dictionary:
 
 
 static func ids() -> Array:
-	return DATA.keys()
+	return DATA.keys() + extra.keys()
 
 
 static func fetch(id: String) -> Dictionary:
+	if extra.has(id):
+		return extra[id]
 	return DATA.get(id, DATA[DEFAULT_ID])
 
 

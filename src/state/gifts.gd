@@ -12,9 +12,19 @@ const DATA := {
 }
 
 
+## Entradas añadidas por mods (ver ModApi).
+static var extra := {}
+
+
+static func register(id: String, data: Dictionary) -> void:
+	extra[id] = data
+
+
 static func ids() -> Array:
-	return DATA.keys()
+	return DATA.keys() + extra.keys()
 
 
 static func fetch(id: String) -> Dictionary:
+	if extra.has(id):
+		return extra[id]
 	return DATA.get(id, {})
