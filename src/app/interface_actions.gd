@@ -82,8 +82,13 @@ func go_to(place: String) -> void:
 ## Camina hasta quedar al lado del punto y lo señala.
 func _walk_and_point(point: Vector2) -> void:
 	var screen_width := avatar.get_viewport_rect().size.x
-	# Se para un poco hacia el centro para que el brazo alcance el punto.
+	# Se para a cierta distancia del punto: así el brazo estirado se ve entero
+	# en vez de quedar tapado por los botones laterales.
 	var stand_x := clampf(point.x, screen_width * 0.3, screen_width * 0.7)
+	if point.x < screen_width * 0.25:
+		stand_x = screen_width * 0.58
+	elif point.x > screen_width * 0.75:
+		stand_x = screen_width * 0.42
 	await avatar.walk_to_screen_x(stand_x)
 	await avatar.point_at_screen(point, 0.8)
 
