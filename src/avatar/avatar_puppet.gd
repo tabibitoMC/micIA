@@ -48,20 +48,23 @@ const TAIL_MOOD := {
 const HAND_L := "Hand:: Left"
 const HAND_R := "Hand:: Right"
 ## Poses de brazo: [hombro, codo] en radianes. Hombro: negativo = abre el
-## brazo hacia afuera/arriba. Codo: positivo = flexiona hacia el cuerpo.
-## Están dentro de lo que un brazo real puede hacer (ver ARM_LIMITS).
-const POSE_REST := Vector2(0.0, 0.08)
-## "Cruzar brazos" de la IA = manos en la cintura (jarras): se lee igual de
-## molesta y con estas mangas anchas se ve natural.
-const POSE_CROSSED := Vector2(-0.42, 1.25)
-const POSE_WAVE := Vector2(-0.7, -1.05)
-const POSE_UP := Vector2(-1.2, -0.35)
-const POSE_SIDE := Vector2(-0.6, -0.1)
-const POSE_WINDUP := Vector2(-0.95, -0.85)
-const POSE_SLAP := Vector2(0.3, 0.55)
-const POSE_PALM_UP := Vector2(-0.2, -0.45)
-## [mín, máx] del hombro y del codo.
-const ARM_LIMITS := [Vector2(-1.35, 0.35), Vector2(-1.15, 1.9)]
+## brazo hacia afuera. Codo: positivo = flexiona hacia el cuerpo.
+##
+## Este modelo tiene UN solo dibujo de cada brazo (colgando). Los riggers de
+## Live2D, para levantar los brazos, dibujan brazos aparte y los intercambian;
+## doblar el mismo dibujo mucho se ve deforme. Por eso aquí los brazos solo
+## se mueven en ángulos pequeños (ARM_LIMITS) y los gestos grandes se hacen
+## con el cuerpo, la cabeza y la cara.
+const POSE_REST := Vector2(0.0, 0.04)
+const POSE_CROSSED := Vector2(0.06, 0.18)
+const POSE_WAVE := Vector2(-0.22, 0.38)
+const POSE_UP := Vector2(-0.26, -0.04)
+const POSE_SIDE := Vector2(-0.24, 0.0)
+const POSE_WINDUP := Vector2(-0.28, 0.1)
+const POSE_SLAP := Vector2(0.18, 0.4)
+const POSE_PALM_UP := Vector2(-0.12, 0.2)
+## [mín, máx] del hombro y del codo: dentro de esto el dibujo no se deforma.
+const ARM_LIMITS := [Vector2(-0.3, 0.2), Vector2(-0.05, 0.45)]
 ## Muñecas (dónde empieza la tela que cuelga).
 const WRIST_L := Vector2(446, 102)
 const WRIST_R := Vector2(-332, 250)
@@ -152,6 +155,12 @@ var _idle_tween: Tween
 var _eye_target := 0.0
 var _eye := 0.0
 var _eye_timer := 1.0
+var _arm_lag_l := Vector2.ZERO
+var _arm_lag_r := Vector2.ZERO
+var _arm_lag_speed_l := Vector2.ZERO
+var _arm_lag_speed_r := Vector2.ZERO
+var _arm_last_pos := Vector2.ZERO
+var _arm_last_lean := 0.0
 var _tail_angle := 0.0
 var _tail_speed := 0.0
 var _tail_mood: Array = TAIL_MOOD["neutral"]
@@ -231,11 +240,17 @@ func play_action(action: String) -> void:
 		"saludar":
 			t.tween_property(self, "act_arm_l", POSE_WAVE, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 			t.parallel().tween_property(self, "act_roll", 0.18, 0.35)
+			t.parallel().tween_property(self, "act_lean", 0.25, 0.35)
+			t.parallel().tween_property(self, "act_jump", 0.02, 0.35)
 			for i in 3:
-				t.tween_property(self, "act_arm_l", POSE_WAVE + Vector2(0.0, -0.3), 0.17).set_trans(Tween.TRANS_SINE)
-				t.tween_property(self, "act_arm_l", POSE_WAVE + Vector2(0.0, 0.2), 0.17).set_trans(Tween.TRANS_SINE)
+				t.tween_property(self, "act_arm_l", POSE_WAVE + Vector2(-0.07, 0.06), 0.16).set_trans(Tween.TRANS_SINE)
+				t.parallel().tween_property(self, "act_roll", 0.26, 0.16)
+				t.tween_property(self, "act_arm_l", POSE_WAVE + Vector2(0.07, -0.06), 0.16).set_trans(Tween.TRANS_SINE)
+				t.parallel().tween_property(self, "act_roll", 0.12, 0.16)
 			t.tween_property(self, "act_arm_l", Vector2.ZERO, 0.45).set_trans(Tween.TRANS_SINE)
 			t.parallel().tween_property(self, "act_roll", 0.0, 0.45)
+			t.parallel().tween_property(self, "act_lean", 0.0, 0.45)
+			t.parallel().tween_property(self, "act_jump", 0.0, 0.45)
 		"asentir":
 			for i in 2:
 				t.tween_property(self, "act_head:y", -0.7, 0.16)
@@ -256,7 +271,7 @@ func play_action(action: String) -> void:
 		"celebrar":
 			t.tween_property(self, "act_arm_l", POSE_UP, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 			t.parallel().tween_property(self, "act_arm_r", POSE_UP, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-			for i in 2:
+			for i in 3:
 				t.tween_property(self, "act_jump", 0.12, 0.16).set_ease(Tween.EASE_OUT)
 				t.parallel().tween_property(self, "act_arm_l", POSE_UP + Vector2(0.12, -0.25), 0.16)
 				t.parallel().tween_property(self, "act_arm_r", POSE_UP + Vector2(0.12, -0.25), 0.16)
@@ -271,25 +286,27 @@ func play_action(action: String) -> void:
 			t.parallel().tween_property(self, "act_head:x", 0.6, 0.4)
 			t.parallel().tween_property(self, "act_roll", -0.22, 0.4)
 			t.parallel().tween_property(self, "act_lean", -0.3, 0.4)
+			t.parallel().tween_property(self, "act_head:y", 0.15, 0.4)
 			t.tween_interval(2.4)
 			t.tween_property(self, "act_arm_l", Vector2.ZERO, 0.5).set_trans(Tween.TRANS_SINE)
 			t.parallel().tween_property(self, "act_arm_r", Vector2.ZERO, 0.5).set_trans(Tween.TRANS_SINE)
 			t.parallel().tween_property(self, "act_head:x", 0.0, 0.5)
 			t.parallel().tween_property(self, "act_roll", 0.0, 0.5)
 			t.parallel().tween_property(self, "act_lean", 0.0, 0.5)
+			t.parallel().tween_property(self, "act_head:y", 0.0, 0.5)
 		"abrazar":
 			# Abre los brazos para recibirte y se acerca a la pantalla.
 			t.tween_property(self, "act_arm_l", POSE_SIDE, 0.4).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 			t.parallel().tween_property(self, "act_arm_r", POSE_SIDE, 0.4).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-			t.parallel().tween_property(self, "act_zoom", 0.12, 0.5)
+			t.parallel().tween_property(self, "act_zoom", 0.2, 0.5).set_trans(Tween.TRANS_SINE)
 			t.parallel().tween_property(self, "act_roll", 0.18, 0.5)
-			t.parallel().tween_property(self, "act_jump", 0.03, 0.5)
+			t.parallel().tween_property(self, "act_head:y", -0.25, 0.5)
 			t.tween_interval(1.4)
 			t.tween_property(self, "act_arm_l", Vector2.ZERO, 0.5).set_trans(Tween.TRANS_SINE)
 			t.parallel().tween_property(self, "act_arm_r", Vector2.ZERO, 0.5).set_trans(Tween.TRANS_SINE)
 			t.parallel().tween_property(self, "act_zoom", 0.0, 0.5)
 			t.parallel().tween_property(self, "act_roll", 0.0, 0.5)
-			t.parallel().tween_property(self, "act_jump", 0.0, 0.5)
+			t.parallel().tween_property(self, "act_head:y", 0.0, 0.5)
 		"golpear":
 			# Cachetada: toma impulso con el codo arriba y suelta el golpe.
 			t.tween_property(self, "act_arm_r", POSE_WINDUP, 0.24).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
@@ -374,15 +391,19 @@ func point_at_screen(point: Vector2, seconds := 1.0) -> void:
 	var offset := point - shoulder
 	# Ángulo del brazo medido desde "colgando hacia abajo".
 	var from_down := atan2(absf(offset.x), offset.y)
-	var rotation := -clampf(from_down - 0.35, 0.0, 2.5)
+	# El brazo solo se abre un poco hacia ese lado; el resto lo hacen el
+	# cuerpo y la cabeza (girándose hacia el botón).
+	var rotation := -clampf(from_down - 0.35, 0.0, 2.5) * 0.15
 	var arm := "act_arm_l" if right_side else "act_arm_r"
 	var t := create_tween()
 	# Brazo casi recto, con el codo apenas doblado.
-	t.tween_property(self, arm, Vector2(rotation, -0.15), 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	t.parallel().tween_property(self, "act_head:x", 0.6 if right_side else -0.6, 0.3)
+	t.tween_property(self, arm, Vector2(rotation, 0.0), 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	t.parallel().tween_property(self, "act_head", Vector2(0.75 if right_side else -0.75, 0.35), 0.3)
+	t.parallel().tween_property(self, "act_lean", 0.45 if right_side else -0.45, 0.3)
 	t.tween_interval(seconds)
 	t.tween_property(self, arm, Vector2.ZERO, 0.3).set_trans(Tween.TRANS_SINE)
-	t.parallel().tween_property(self, "act_head:x", 0.0, 0.3)
+	t.parallel().tween_property(self, "act_head", Vector2.ZERO, 0.3)
+	t.parallel().tween_property(self, "act_lean", 0.0, 0.3)
 	await t.finished
 
 
@@ -656,21 +677,54 @@ func _process(delta: float) -> void:
 ## Brazos: postura de la emoción + gesto + un balanceo leve. Cada brazo se
 ## dobla por el codo (en la GPU) y su mano sigue a la muñeca.
 func _apply_arms(calm: float) -> void:
-	var idle := sin(_time * 1.1) * 0.03 * calm
-	var swing := sin(_time * 9.0) * 0.25 * absf(_walk)
+	var idle := sin(_time * 1.1) * 0.025 * calm
+	var swing := sin(_time * 9.0) * 0.12 * absf(_walk)
+	_update_arm_physics(get_process_delta_time())
 	# La emoción recoge las manos hacia el cuerpo doblando sobre todo el codo.
-	var posture := Vector2(_arms * 0.1, _arms * 0.95)
-	var left: Vector2 = POSE_REST + posture + act_arm_l + idle_arm_l + Vector2(idle + swing, idle * 2.0)
-	var right: Vector2 = POSE_REST + posture + act_arm_r + idle_arm_r + Vector2(idle - swing, -idle * 2.0)
+	var posture := Vector2(_arms * 0.08, _arms * 0.35)
+	var left: Vector2 = POSE_REST + posture + act_arm_l + idle_arm_l + Vector2(idle + swing, idle * 2.0) + _arm_lag_l
+	var right: Vector2 = POSE_REST + posture + act_arm_r + idle_arm_r + Vector2(idle - swing, -idle * 2.0) + _arm_lag_r
 	_bend_arm(ARM_L, HAND_L, ARM_L_PIVOT, ARM_L_ELBOW, WRIST_L, left, 1.0)
 	_bend_arm(ARM_R, HAND_R, ARM_R_PIVOT, ARM_R_ELBOW, WRIST_R, right, -1.0)
 	# Por delante del cuerpo en cuanto la mano se acerca al centro; si no,
 	# queda escondida detrás de la falda.
 	# Manos en la cintura (hombro abierto + codo doblado) quedan atrás.
-	var left_front := act_front > 0.5 or (left.x > -0.2 and left.x + left.y * 0.5 > 0.35)
-	var right_front := act_front > 0.5 or (right.x > -0.2 and right.x + right.y * 0.5 > 0.35)
+	var left_front := act_front > 0.5 or (left.x > -0.2 and left.x + left.y * 0.5 > 0.5)
+	var right_front := act_front > 0.5 or (right.x > -0.2 and right.x + right.y * 0.5 > 0.5)
 	_puppet.set_node_z(ARM_L, ARM_FRONT_Z if left_front else 0.0)
 	_puppet.set_node_z(ARM_R, ARM_FRONT_Z + 0.05 if right_front else 0.0)
+
+
+## Física sutil de brazos (péndulo en hombro y codo): cuando el cuerpo se
+## mueve, salta o se inclina, los brazos se quedan un poco atrás y rebotan.
+func _update_arm_physics(delta: float) -> void:
+	if delta <= 0.0:
+		return
+	var x := _puppet.position.x
+	var y := _puppet.position.y
+	var velocity := Vector2(x - _arm_last_pos.x, y - _arm_last_pos.y) / delta
+	_arm_last_pos = Vector2(x, y)
+	var lean := act_lean + idle_lean
+	var lean_speed := (lean - _arm_last_lean) / delta
+	_arm_last_lean = lean
+	# Empuje: movimiento lateral abre un brazo y cierra el otro; subir/bajar
+	# levanta un poco ambos codos; inclinarse los balancea.
+	var push := clampf(-velocity.x * 0.25 - lean_speed * 0.05, -2.0, 2.0)
+	var lift := clampf(velocity.y * 0.6, -2.0, 2.0)
+	for side in [0, 1]:
+		var lag: Vector2 = _arm_lag_l if side == 0 else _arm_lag_r
+		var speed: Vector2 = _arm_lag_speed_l if side == 0 else _arm_lag_speed_r
+		var sign := 1.0 if side == 0 else -1.0
+		var force := Vector2(push * sign, -lift) * 1.0 - lag * 90.0 - speed * 9.0
+		speed += force * delta
+		lag += speed * delta
+		lag = lag.clamp(Vector2(-0.12, -0.12), Vector2(0.12, 0.15))
+		if side == 0:
+			_arm_lag_l = lag
+			_arm_lag_speed_l = speed
+		else:
+			_arm_lag_r = lag
+			_arm_lag_speed_r = speed
 
 
 ## side = 1 para el brazo izquierdo del modelo, -1 para el derecho (espejo).
@@ -809,7 +863,7 @@ func _idle_gesture() -> void:
 		4:  # acomodarse la ropa / estirar un brazo
 			# Se acomoda la manga: lleva una mano hacia el centro.
 			var arm := "idle_arm_l" if randf() < 0.5 else "idle_arm_r"
-			t.tween_property(self, arm, Vector2(0.05, 0.5), 0.5)
+			t.tween_property(self, arm, Vector2(0.05, 0.3), 0.5)
 			t.tween_property(self, "idle_head", Vector2(0, -0.3), 0.5)
 			t.chain().tween_property(self, arm, Vector2.ZERO, 0.5).set_delay(0.6)
 		5:  # pequeño balanceo alegre

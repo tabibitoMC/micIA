@@ -13,6 +13,7 @@ Proyecto personal de una asistente / amiga con IA. No lo voy a comercializar ni 
 - **Modelo:** `assets/puppets/aka.puppet` (Aka, de los ejemplos de Inochi2D, CC BY 4.0, seagetch).
 - **Tu propio modelo:** ármalo en Inochi Creator (gratis), exporta el `.inx` y conviértelo:
   `python3 tools/bake_puppet.py MiModelo.inx assets/puppets/mimodelo.puppet` (alta calidad, 2 subdivisiones) y `python3 tools/bake_puppet.py MiModelo.inx assets/puppets/mimodelo_normal.puppet --subdivide 1` (calidad normal), y pon la primera ruta en `src/characters/characters.gd`. No soporta MeshGroup.
+- **Brazos:** Aka tiene un solo dibujo de cada brazo (colgando), así que solo se mueven en ángulos pequeños, con física sutil; los gestos grandes se hacen con cuerpo, cabeza y cara. Para levantar los brazos de verdad hay que dibujar brazos aparte por pose (como en Live2D) en tu propio modelo.
 - **Lugares:** dormitorio, sala, cocina y patio dibujados en 2D (`src/ui/room_background.gd`); en el dormitorio se acuesta a dormir.
 
 > Las secciones de abajo que hablen de Mistral, VRM o habitaciones 3D describen la versión 1 y ya no aplican.
