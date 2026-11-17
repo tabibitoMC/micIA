@@ -18,6 +18,8 @@ const DEFAULTS := {
 	"companion_name": "Aka",
 	"user_name": "",
 	"personality": "tsundere",
+	## Instrucciones extra que tú escribes para ella (se añaden al prompt).
+	"custom_prompt": "",
 	"avatar_3d": true,
 	"room_theme": "dia",
 	## Lugar de la casa donde está ella (ver Environments).
@@ -35,7 +37,7 @@ const DEFAULTS := {
 	"cloudflare_api_token": "",
 	"horde_api_key": "",
 	## Cómo es ella físicamente (se usa en sus selfies y para que se describa bien).
-	"appearance": "adult anime woman, 25 years old, tall, short silver-white hair, heterochromia (blue and green eyes), dark navy and cyan bodysuit with glowing cyan lines, long gloves, thigh-high boots",
+	"appearance": "anime fox girl, short orange hair with straight bangs, big fox ears, big fluffy orange tail, red eyes, a small red leaf on her head, white and red shrine maiden outfit with a big red bow, white thigh-high socks",
 }
 
 ## Modelos de Mistral que se ofrecen en Ajustes.

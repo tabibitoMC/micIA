@@ -87,6 +87,8 @@ class PNode:
 	var user_t := Vector2.ZERO
 	var user_rz := 0.0
 	var user_s := Vector2.ONE
+	var user_pivot := Vector2.ZERO
+	var user_z := 0.0
 	var user_opacity := 1.0
 	var world := Transform3D.IDENTITY
 	var z := 0.0
@@ -433,12 +435,30 @@ func has_node_named(node_name: String) -> bool:
 
 
 ## Desplaza / gira / escala un nodo además de lo que digan los parámetros.
-func set_node_offset(node_name: String, translation := Vector2.ZERO, rotation := 0.0, scale_by := Vector2.ONE) -> void:
+## `pivot` es el punto (en píxeles del nodo) alrededor del cual gira.
+func set_node_offset(node_name: String, translation := Vector2.ZERO, rotation := 0.0, scale_by := Vector2.ONE, pivot_px := Vector2.ZERO) -> void:
 	var index: int = _node_index.get(node_name, -1)
 	if index >= 0:
 		_nodes[index].user_t = translation
 		_nodes[index].user_rz = rotation
 		_nodes[index].user_s = scale_by
+		_nodes[index].user_pivot = pivot_px
+
+
+## Mueve un nodo hacia delante (negativo) o hacia atrás en el orden de capas.
+func set_node_z(node_name: String, z_offset: float) -> void:
+	var index: int = _node_index.get(node_name, -1)
+	if index >= 0:
+		_nodes[index].user_z = z_offset
+
+
+## Rectángulo de la malla de una capa, en píxeles de su nodo.
+func node_rect(node_name: String) -> Rect2:
+	var index: int = _node_index.get(node_name, -1)
+	if index < 0 or _nodes[index].instance == null:
+		return Rect2()
+	var aabb := _nodes[index].instance.mesh.get_aabb()
+	return Rect2(aabb.position.x, aabb.position.y, aabb.size.x, aabb.size.y)
 
 
 func set_node_opacity(node_name: String, value: float) -> void:
@@ -635,11 +655,16 @@ func _update_transforms() -> void:
 		if scale_by != Vector2.ONE:
 			basis = basis.scaled_local(Vector3(scale_by.x, scale_by.y, 1.0))
 		var translation := node.base_t + node.off_t + node.user_t
+		if node.user_pivot != Vector2.ZERO and (node.user_rz != 0.0 or node.user_s != Vector2.ONE):
+			# Girar / escalar alrededor del pivote en vez del origen del nodo.
+			var p := node.user_pivot
+			var turned := (p * node.user_s).rotated(node.user_rz)
+			translation += p - turned
 		var local := Transform3D(basis, Vector3(translation.x, translation.y, 0.0))
 		if node.parent >= 0:
 			var parent := _nodes[node.parent]
 			node.world = parent.world * local
-			node.z = parent.z + node.base_z + node.off_z
+			node.z = parent.z + node.base_z + node.off_z + node.user_z
 		else:
 			node.world = local
 			node.z = node.base_z + node.off_z

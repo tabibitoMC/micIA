@@ -10,6 +10,7 @@ var _model: OptionButton
 var _companion_name: LineEdit
 var _user_name: LineEdit
 var _personality: OptionButton
+var _custom_prompt: TextEdit
 var _appearance: LineEdit
 var _character: OptionButton
 var _adult: CheckButton
@@ -70,6 +71,13 @@ func _ready() -> void:
 	for id in Personalities.ids():
 		_personality.add_item(Personalities.fetch(id)["label"])
 	form.add_child(_personality)
+
+	_add_label(form, "Instrucciones para ella (prompt extra)")
+	_custom_prompt = TextEdit.new()
+	_custom_prompt.placeholder_text = "Ej.: Háblame de tú, usa jerga peruana, te gusta el anime y me dices 'baka' cuando te molesto."
+	_custom_prompt.wrap_mode = TextEdit.LINE_WRAPPING_BOUNDARY
+	_custom_prompt.custom_minimum_size = Vector2(0, 110)
+	form.add_child(_custom_prompt)
 
 	_add_label(form, "Su apariencia (para sus fotos, en inglés)")
 	_appearance = LineEdit.new()
@@ -157,6 +165,7 @@ func load_values() -> void:
 	_user_name.text = str(Settings.get_value("user_name"))
 	var ids := Personalities.ids()
 	_personality.select(maxi(0, ids.find(str(Settings.get_value("personality")))))
+	_custom_prompt.text = str(Settings.get_value("custom_prompt"))
 	_appearance.text = str(Settings.get_value("appearance"))
 	_character.select(maxi(0, Characters.ids().find(str(Settings.get_value("character")))))
 	_adult.button_pressed = bool(Settings.get_value("adult_content"))
@@ -180,6 +189,7 @@ func _on_save_pressed() -> void:
 	Settings.set_value("companion_name", name_text if not name_text.is_empty() else "Mia")
 	Settings.set_value("user_name", _user_name.text.strip_edges())
 	Settings.set_value("personality", Personalities.ids()[_personality.selected])
+	Settings.set_value("custom_prompt", _custom_prompt.text.strip_edges())
 	if not _appearance.text.strip_edges().is_empty():
 		Settings.set_value("appearance", _appearance.text.strip_edges())
 	Settings.set_value("room_theme", RoomBackground.theme_ids()[_room_theme.selected])

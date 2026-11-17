@@ -93,6 +93,7 @@ func _system_prompt() -> String:
 		"room_theme": RoomBackground.THEMES.get(str(Settings.get_value("room_theme")), {"label": "Día"})["label"],
 		"mood_description": Mood.describe_for_prompt(),
 		"treatment_summary": Mood.treatment_summary(),
+		"custom_prompt": str(Settings.get_value("custom_prompt")),
 		"facts": Memory.facts,
 		"mods_prompt": Mods.extra_prompt(),
 		"scene": scene_context.call(),

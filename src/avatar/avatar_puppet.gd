@@ -1,10 +1,10 @@
 class_name AvatarPuppet
 extends Avatar
 ## Avatar 2D estilo VTuber: una marioneta por capas (Puppet) con físicas en
-## el pelo, parpadeo, boca al hablar, emociones y gestos.
+## el pelo, parpadeo, boca al hablar, emociones y gestos con los brazos.
 ##
 ## Se dibuja en un SubViewport transparente con cámara ortográfica, encima
-## del fondo de la habitación.
+## del fondo de la casa (RoomBackground).
 
 const DEFAULT_MODEL_PATH := "res://assets/puppets/aka.puppet"
 ## Altura del modelo en el mundo (metros) y encuadre de la cámara.
@@ -23,36 +23,45 @@ const P_BLINK_R := "Eye:: Right:: Blink"
 const P_EYE_L := "Eye:: Left:: Move"
 const P_EYE_R := "Eye:: Right:: Move"
 const P_BREATH := "Breath"
-const P_ARM_L := "Arm:: Left:: Move"
-const P_ARM_R := "Arm:: Right:: Move"
 const P_BODY_X := "Body:: X:: Move"
+
+## Brazos: nodo y hombro (pivote en píxeles del nodo). El brazo "Left" del
+## modelo queda a la derecha de la pantalla. Los ángulos de abajo son para
+## el izquierdo; el derecho usa el signo contrario (ver _apply_arms).
+const ARM_L := "Arm:: Left"
+const ARM_R := "Arm:: Right"
+const ARM_L_PIVOT := Vector2(-215, -1075)
+const ARM_R_PIVOT := Vector2(203, -1117)
+const ARM_CROSSED := 0.8
+const ARM_SIDE := -1.3
+const ARM_UP := -2.2
+## Capas por delante del cuerpo cuando cruza los brazos.
+const ARM_FRONT_Z := -0.5
 
 ## Emoción -> objetivos de la cara y el cuerpo.
 ##   eyes: cuánto cierra los ojos (0..1) · mouth: [forma, apertura]
 ##   head: [giro, cabeceo] · roll: inclinación · brow: giro de cejas (rad,
 ##   positivo = enojada) · brow_y: cejas arriba (-) o abajo (+) en px
+##   arms: cuánto recoge los brazos hacia el cuerpo (-1 abiertos .. 1 cruzados)
 const EMOTIONS := {
-	"neutral": {"eyes": 0.0, "mouth": [0.5, 0.0], "head": [0.0, 0.0], "roll": 0.0, "brow": 0.0, "brow_y": 0.0},
-	"feliz": {"eyes": 0.85, "mouth": [1.0, 0.45], "head": [0.0, 0.1], "roll": 0.12, "brow": -0.05, "brow_y": -6.0},
-	"triste": {"eyes": 0.35, "mouth": [0.0, 0.0], "head": [0.0, -0.45], "roll": -0.1, "brow": -0.3, "brow_y": 0.0},
-	"enojada": {"eyes": 0.25, "mouth": [0.0, 0.15], "head": [0.0, -0.15], "roll": 0.0, "brow": 0.35, "brow_y": 10.0},
-	"sorprendida": {"eyes": 0.0, "mouth": [0.5, 0.9], "head": [0.0, 0.25], "roll": 0.0, "brow": 0.0, "brow_y": -16.0},
-	"avergonzada": {"eyes": 0.3, "mouth": [0.3, 0.1], "head": [0.3, -0.3], "roll": 0.15, "brow": -0.15, "brow_y": 0.0, "blush": 1.0},
-	"pensativa": {"eyes": 0.15, "mouth": [0.3, 0.0], "head": [-0.35, 0.3], "roll": -0.15, "brow": 0.1, "brow_y": -4.0},
-	"coqueta": {"eyes": 0.4, "mouth": [1.0, 0.2], "head": [0.2, -0.1], "roll": 0.25, "brow": 0.0, "brow_y": -4.0, "blush": 0.6},
+	"neutral": {"eyes": 0.0, "mouth": [0.5, 0.0], "head": [0.0, 0.0], "roll": 0.0, "brow": 0.0, "brow_y": 0.0, "arms": 0.0},
+	"feliz": {"eyes": 0.85, "mouth": [1.0, 0.45], "head": [0.0, 0.1], "roll": 0.12, "brow": -0.05, "brow_y": -6.0, "arms": -0.12},
+	"triste": {"eyes": 0.35, "mouth": [0.0, 0.0], "head": [0.0, -0.45], "roll": -0.1, "brow": -0.3, "brow_y": 0.0, "arms": 0.3},
+	"enojada": {"eyes": 0.25, "mouth": [0.0, 0.15], "head": [0.0, -0.15], "roll": 0.0, "brow": 0.35, "brow_y": 10.0, "arms": 0.22},
+	"sorprendida": {"eyes": 0.0, "mouth": [0.5, 0.9], "head": [0.0, 0.25], "roll": 0.0, "brow": 0.0, "brow_y": -16.0, "arms": -0.3},
+	"avergonzada": {"eyes": 0.3, "mouth": [0.3, 0.1], "head": [0.3, -0.3], "roll": 0.15, "brow": -0.15, "brow_y": 0.0, "blush": 1.0, "arms": 0.38},
+	"pensativa": {"eyes": 0.15, "mouth": [0.3, 0.0], "head": [-0.35, 0.3], "roll": -0.15, "brow": 0.1, "brow_y": -4.0, "arms": 0.15},
+	"coqueta": {"eyes": 0.4, "mouth": [1.0, 0.2], "head": [0.2, -0.1], "roll": 0.25, "brow": 0.0, "brow_y": -4.0, "blush": 0.6, "arms": 0.2},
 }
 
 ## Modelo a cargar (se fija antes de añadir el avatar a la escena).
 var model_path := DEFAULT_MODEL_PATH
-
 ## Fondo de la casa (lo pone main.gd): ahí están los lugares y la cama.
 var room: RoomBackground
 
 var _viewport: SubViewport
-var _foreground: Control
-var _night := false
-var _in_bed := false
 var _container: SubViewportContainer
+var _foreground: Control
 var _camera: Camera3D
 var _puppet: Puppet
 var _ready_ok := false
@@ -66,6 +75,7 @@ var _roll := 0.0
 var _brow := 0.0
 var _brow_y := 0.0
 var _blush := 0.0
+var _arms := 0.0
 
 var _time := 0.0
 var _talking := false
@@ -73,6 +83,8 @@ var _talk_time := 0.0
 var _blink_timer := 2.5
 var _blink := 0.0
 var _sleeping := false
+var _in_bed := false
+var _night := false
 var _turned_away := false
 var _action_tween: Tween
 
@@ -80,11 +92,16 @@ var _action_tween: Tween
 var act_head := Vector2.ZERO
 var act_roll := 0.0
 var act_body := Vector2.ZERO
+## Giro de cada brazo (radianes, convención del brazo izquierdo).
 var act_arm_l := 0.0
 var act_arm_r := 0.0
+## 1 = brazos por delante del cuerpo.
+var act_front := 0.0
 var act_jump := 0.0
 var act_zoom := 0.0
 var act_shake := 0.0
+var act_lean := 0.0
+var act_tears := 0.0
 var _walk := 0.0
 var _home_x := 0.0
 
@@ -100,6 +117,7 @@ func _ready() -> void:
 		return
 	_puppet.fit_height(MODEL_HEIGHT)
 	_add_blush()
+	_add_tears()
 	_puppet.update(0.0)
 
 
@@ -115,7 +133,7 @@ func set_talking(talking: bool) -> void:
 	_talking = talking
 
 
-## El conjunto de ropa gira el tono de la ropa (el color de `cloth`).
+## El conjunto de ropa gira el tono de la ropa (hacia el color de `cloth`).
 func apply_tint(cloth: Color, _hair: Color) -> void:
 	if not _ready_ok:
 		return
@@ -123,8 +141,10 @@ func apply_tint(cloth: Color, _hair: Color) -> void:
 	_puppet.set_hue(["Skirt", "Ribbon"], shift)
 
 
+# --- Gestos -------------------------------------------------------------------------
+
 func play_action(action: String) -> void:
-	if not _ready_ok:
+	if not _ready_ok or _in_bed:
 		return
 	if _action_tween:
 		_action_tween.kill()
@@ -133,13 +153,13 @@ func play_action(action: String) -> void:
 	_action_tween = t
 	match action:
 		"saludar":
-			t.tween_property(self, "act_arm_l", 1.0, 0.3).set_trans(Tween.TRANS_SINE)
+			t.tween_property(self, "act_arm_l", ARM_UP, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 			t.parallel().tween_property(self, "act_roll", 0.2, 0.3)
 			for i in 3:
-				t.tween_property(self, "act_arm_l", 0.55, 0.16)
-				t.tween_property(self, "act_arm_l", 1.0, 0.16)
-			t.tween_property(self, "act_arm_l", 0.0, 0.35).set_trans(Tween.TRANS_SINE)
-			t.parallel().tween_property(self, "act_roll", 0.0, 0.35)
+				t.tween_property(self, "act_arm_l", ARM_UP - 0.3, 0.15)
+				t.tween_property(self, "act_arm_l", ARM_UP + 0.3, 0.15)
+			t.tween_property(self, "act_arm_l", 0.0, 0.4).set_trans(Tween.TRANS_SINE)
+			t.parallel().tween_property(self, "act_roll", 0.0, 0.4)
 		"asentir":
 			for i in 2:
 				t.tween_property(self, "act_head:y", -0.7, 0.16)
@@ -152,37 +172,85 @@ func play_action(action: String) -> void:
 			t.tween_property(self, "act_head:x", 0.0, 0.14)
 		"saltar":
 			t.tween_property(self, "act_jump", 0.14, 0.18).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
+			t.parallel().tween_property(self, "act_arm_l", -0.8, 0.18)
+			t.parallel().tween_property(self, "act_arm_r", -0.8, 0.18)
 			t.tween_property(self, "act_jump", 0.0, 0.4).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BOUNCE)
+			t.parallel().tween_property(self, "act_arm_l", 0.0, 0.4)
+			t.parallel().tween_property(self, "act_arm_r", 0.0, 0.4)
+		"celebrar":
+			t.tween_property(self, "act_arm_l", ARM_UP, 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+			t.parallel().tween_property(self, "act_arm_r", ARM_UP, 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+			for i in 2:
+				t.tween_property(self, "act_jump", 0.12, 0.16).set_ease(Tween.EASE_OUT)
+				t.tween_property(self, "act_jump", 0.0, 0.2).set_ease(Tween.EASE_IN)
+			t.tween_property(self, "act_arm_l", 0.0, 0.4).set_trans(Tween.TRANS_SINE)
+			t.parallel().tween_property(self, "act_arm_r", 0.0, 0.4).set_trans(Tween.TRANS_SINE)
 		"cruzar_brazos":
-			t.tween_property(self, "act_body:x", -0.5, 0.4).set_trans(Tween.TRANS_SINE)
-			t.parallel().tween_property(self, "act_head:x", 0.6, 0.4)
-			t.parallel().tween_property(self, "act_roll", -0.25, 0.4)
-			t.tween_interval(2.0)
-			t.tween_property(self, "act_body:x", 0.0, 0.45).set_trans(Tween.TRANS_SINE)
+			act_front = 1.0
+			t.tween_property(self, "act_arm_l", ARM_CROSSED, 0.35).set_trans(Tween.TRANS_SINE)
+			t.parallel().tween_property(self, "act_arm_r", ARM_CROSSED, 0.35).set_trans(Tween.TRANS_SINE)
+			t.parallel().tween_property(self, "act_head:x", 0.6, 0.35)
+			t.parallel().tween_property(self, "act_roll", -0.22, 0.35)
+			t.parallel().tween_property(self, "act_lean", -0.3, 0.35)
+			t.tween_interval(2.4)
+			t.tween_property(self, "act_arm_l", 0.0, 0.45).set_trans(Tween.TRANS_SINE)
+			t.parallel().tween_property(self, "act_arm_r", 0.0, 0.45).set_trans(Tween.TRANS_SINE)
 			t.parallel().tween_property(self, "act_head:x", 0.0, 0.45)
 			t.parallel().tween_property(self, "act_roll", 0.0, 0.45)
+			t.parallel().tween_property(self, "act_lean", 0.0, 0.45)
+			t.tween_callback(func(): act_front = 0.0)
+		"abrazar":
+			t.tween_property(self, "act_arm_l", ARM_SIDE, 0.3).set_trans(Tween.TRANS_SINE)
+			t.parallel().tween_property(self, "act_arm_r", ARM_SIDE, 0.3).set_trans(Tween.TRANS_SINE)
+			t.tween_callback(func(): act_front = 1.0)
+			t.tween_property(self, "act_arm_l", ARM_CROSSED + 0.1, 0.3).set_trans(Tween.TRANS_SINE)
+			t.parallel().tween_property(self, "act_arm_r", ARM_CROSSED + 0.1, 0.3).set_trans(Tween.TRANS_SINE)
+			t.parallel().tween_property(self, "act_zoom", 0.14, 0.3)
+			t.parallel().tween_property(self, "act_roll", 0.2, 0.3)
+			t.tween_interval(1.4)
+			t.tween_property(self, "act_arm_l", 0.0, 0.4).set_trans(Tween.TRANS_SINE)
+			t.parallel().tween_property(self, "act_arm_r", 0.0, 0.4).set_trans(Tween.TRANS_SINE)
+			t.parallel().tween_property(self, "act_zoom", 0.0, 0.4)
+			t.parallel().tween_property(self, "act_roll", 0.0, 0.4)
+			t.tween_callback(func(): act_front = 0.0)
 		"golpear":
-			# Toma impulso y se lanza hacia la pantalla.
-			t.tween_property(self, "act_zoom", -0.08, 0.18)
-			t.parallel().tween_property(self, "act_arm_r", 1.0, 0.18)
-			t.tween_property(self, "act_zoom", 0.35, 0.09)
+			# Cachetada: echa el brazo atrás, se acerca y lo cruza de golpe.
+			t.tween_property(self, "act_arm_r", ARM_UP, 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+			t.parallel().tween_property(self, "act_lean", 0.5, 0.22)
+			t.parallel().tween_property(self, "act_zoom", -0.06, 0.22)
+			t.tween_callback(func(): act_front = 1.0)
+			t.tween_property(self, "act_arm_r", ARM_CROSSED + 0.25, 0.09)
+			t.parallel().tween_property(self, "act_zoom", 0.4, 0.09)
+			t.parallel().tween_property(self, "act_lean", -0.6, 0.09)
 			t.tween_callback(func(): struck.emit())
-			t.tween_interval(0.25)
-			t.tween_property(self, "act_zoom", 0.0, 0.3)
-			t.parallel().tween_property(self, "act_arm_r", 0.0, 0.3)
+			t.tween_interval(0.3)
+			t.tween_property(self, "act_arm_r", 0.0, 0.35).set_trans(Tween.TRANS_SINE)
+			t.parallel().tween_property(self, "act_zoom", 0.0, 0.35)
+			t.parallel().tween_property(self, "act_lean", 0.0, 0.35)
+			t.tween_callback(func(): act_front = 0.0)
 		"llorar":
+			act_front = 1.0
 			t.tween_property(self, "act_head:y", -0.8, 0.4)
-			for i in 8:
+			t.parallel().tween_property(self, "act_arm_l", 0.6, 0.4)
+			t.parallel().tween_property(self, "act_arm_r", 0.6, 0.4)
+			t.parallel().tween_property(self, "act_tears", 1.0, 0.4)
+			for i in 9:
 				t.tween_property(self, "act_shake", 1.0, 0.11)
 				t.tween_property(self, "act_shake", -1.0, 0.11)
 			t.tween_property(self, "act_shake", 0.0, 0.1)
 			t.tween_property(self, "act_head:y", 0.0, 0.5)
+			t.parallel().tween_property(self, "act_arm_l", 0.0, 0.5)
+			t.parallel().tween_property(self, "act_arm_r", 0.0, 0.5)
+			t.parallel().tween_property(self, "act_tears", 0.0, 1.2)
+			t.tween_callback(func(): act_front = 0.0)
 		"mirar_otro_lado":
 			t.tween_property(self, "act_head:x", -0.9, 0.3).set_trans(Tween.TRANS_SINE)
 			t.parallel().tween_property(self, "act_roll", -0.15, 0.3)
+			t.parallel().tween_property(self, "act_lean", 0.3, 0.3)
 			t.tween_interval(1.6)
 			t.tween_property(self, "act_head:x", 0.0, 0.4).set_trans(Tween.TRANS_SINE)
 			t.parallel().tween_property(self, "act_roll", 0.0, 0.4)
+			t.parallel().tween_property(self, "act_lean", 0.0, 0.4)
 		_:
 			t.kill()
 
@@ -193,32 +261,41 @@ func _reset_actions() -> void:
 	act_body = Vector2.ZERO
 	act_arm_l = 0.0
 	act_arm_r = 0.0
+	act_front = 0.0
 	act_jump = 0.0
 	act_zoom = 0.0
 	act_shake = 0.0
+	act_lean = 0.0
+	act_tears = 0.0
 
 
 # --- Movimiento por la pantalla ---------------------------------------------------
 
 func walk_to_screen_x(x: float) -> void:
-	if not _ready_ok:
+	if not _ready_ok or _in_bed:
 		return
 	await _walk_to(_screen_to_world_x(x))
 
 
 func go_home() -> void:
-	if _ready_ok:
+	if _ready_ok and not _in_bed:
 		await _walk_to(_home_x)
 
 
+## Señala un punto de la pantalla con el brazo de ese lado.
 func point_at_screen(point: Vector2, seconds := 1.0) -> void:
-	if not _ready_ok:
+	if not _ready_ok or _in_bed:
 		return
-	var left_side := point.x > _world_to_screen(_puppet.global_position).x
-	var arm := "act_arm_l" if left_side else "act_arm_r"
+	var shoulder := _world_to_screen(_puppet.node_position("Body", Vector2(0, -330)))
+	var right_side := point.x > shoulder.x
+	var offset := point - shoulder
+	# Ángulo del brazo medido desde "colgando hacia abajo".
+	var from_down := atan2(absf(offset.x), offset.y)
+	var rotation := -clampf(from_down - 0.35, 0.0, 2.5)
+	var arm := "act_arm_l" if right_side else "act_arm_r"
 	var t := create_tween()
-	t.tween_property(self, arm, 1.0, 0.3).set_trans(Tween.TRANS_SINE)
-	t.parallel().tween_property(self, "act_head:x", 0.6 if left_side else -0.6, 0.3)
+	t.tween_property(self, arm, rotation, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	t.parallel().tween_property(self, "act_head:x", 0.6 if right_side else -0.6, 0.3)
 	t.tween_interval(seconds)
 	t.tween_property(self, arm, 0.0, 0.3).set_trans(Tween.TRANS_SINE)
 	t.parallel().tween_property(self, "act_head:x", 0.0, 0.3)
@@ -229,51 +306,13 @@ func set_turned_away(away: bool) -> void:
 	_turned_away = away
 
 
-# --- Lugares -----------------------------------------------------------------------
-
-func set_room(env_id: String, time_theme: String) -> void:
-	if room:
-		room.set_place(env_id)
-		room.set_room_theme(time_theme)
-	set_time_of_day(time_theme)
-
-
-func set_time_of_day(time_theme: String) -> void:
-	_night = time_theme == "noche"
-
-
-func current_room() -> String:
-	return room.place if room else ""
-
-
-func window_screen_position() -> Variant:
-	if room == null or room.place == "patio":
-		return null
-	return room.window_global_center()
-
-
-## Dormir: en el dormitorio se acuesta en la cama, tapada con la cobija.
-func set_sleeping(sleeping: bool) -> void:
-	if sleeping == _sleeping or not _ready_ok:
-		return
-	_sleeping = sleeping
-	_in_bed = sleeping and room != null and room.place == "dormitorio"
-	_reset_actions()
-	_puppet.physics_enabled = not _in_bed
-	if not _in_bed:
-		_puppet.rotation.z = 0.0
-		_puppet.position = Vector3(_home_x, 0.0, 0.0)
-		_puppet.reset_physics()
-	_foreground.queue_redraw()
-
-
-func is_sleeping() -> bool:
-	return _sleeping
-
-
 func fade(to_black: bool, seconds := 0.35) -> void:
-	var tween := create_tween()
-	tween.tween_property(self, "modulate", Color(0.05, 0.02, 0.05) if to_black else Color.WHITE, seconds)
+	var targets: Array = [self]
+	if room:
+		targets.append(room)
+	var tween := create_tween().set_parallel()
+	for target in targets:
+		tween.tween_property(target, "modulate", Color(0.05, 0.02, 0.05) if to_black else Color.WHITE, seconds)
 	await tween.finished
 
 
@@ -284,7 +323,7 @@ func place_at_side(from_left: bool) -> void:
 
 
 func walk_out(to_right: bool) -> void:
-	if _ready_ok:
+	if _ready_ok and not _in_bed:
 		await _walk_to(_view_half_width() * (1.4 if to_right else -1.4))
 
 
@@ -299,6 +338,8 @@ func is_body_at(point: Vector2) -> bool:
 	if not _ready_ok:
 		return false
 	var head := _world_to_screen(_puppet.node_position("Face"))
+	if _in_bed:
+		return point.distance_to(head) < size.y * 0.2
 	return point.y > head.y - size.y * 0.2 and absf(point.x - head.x) < size.x * 0.3
 
 
@@ -332,6 +373,102 @@ func _world_to_screen(world: Vector3) -> Vector2:
 	return global_position + Vector2(u, v) * size
 
 
+# --- Lugares y dormir -------------------------------------------------------------
+
+func set_room(env_id: String, time_theme: String) -> void:
+	if room:
+		room.set_place(env_id)
+		room.set_room_theme(time_theme)
+	set_time_of_day(time_theme)
+
+
+func set_time_of_day(time_theme: String) -> void:
+	_night = time_theme == "noche"
+
+
+func current_room() -> String:
+	return room.place if room else ""
+
+
+func window_screen_position() -> Variant:
+	if room == null or room.place == "patio":
+		return null
+	return room.window_global_center()
+
+
+## Dormir: en el dormitorio se ve la cama de cerca y ella acostada y tapada.
+func set_sleeping(sleeping: bool) -> void:
+	if sleeping == _sleeping or not _ready_ok:
+		return
+	_sleeping = sleeping
+	_in_bed = sleeping and room != null and room.place == "dormitorio"
+	if _action_tween:
+		_action_tween.kill()
+	_reset_actions()
+	_puppet.physics_enabled = not _in_bed
+	_puppet.set_node_opacity("Tail", 0.0 if _in_bed else 1.0)
+	if room:
+		room.set_sleep_view(_in_bed)
+	if not _in_bed:
+		_puppet.rotation.z = 0.0
+		_puppet.scale = Vector3.ONE
+		_puppet.position = Vector3(_home_x, 0.0, 0.0)
+		_puppet.reset_physics()
+	_foreground.queue_redraw()
+
+
+func is_sleeping() -> bool:
+	return _sleeping
+
+
+## Acostada de lado: pies a la izquierda (bajo la cobija), cara en la almohada.
+func _lie_in_bed() -> void:
+	var spot := room.sleep_spot()
+	var meters_per_pixel := VIEW_HEIGHT / maxf(1.0, size.y)
+	var length_px: float = spot["length"]
+	var head: Vector2 = spot["head"]
+	# La cara está más o menos al 80 % de su altura.
+	var feet := Vector2(head.x - length_px * 0.8, head.y)
+	_puppet.scale = Vector3.ONE * (length_px * meters_per_pixel / MODEL_HEIGHT)
+	_puppet.rotation.z = -PI / 2.0
+	_puppet.position = Vector3(_screen_to_world_x(global_position.x + feet.x), VIEW_TOP - feet.y * meters_per_pixel, 0.0)
+
+
+## Lo que va por delante de ella: la cobija y las "Zzz".
+func _draw_foreground() -> void:
+	if not _sleeping:
+		return
+	var canvas := _foreground
+	if _in_bed:
+		var rect := room.blanket_rect()
+		var color := room.blanket_color()
+		if _night:
+			color = color.darkened(0.25)
+		# Cobija con el bulto del cuerpo: borde de arriba ondulado.
+		var points := PackedVector2Array([Vector2(rect.position.x, rect.end.y)])
+		for i in 17:
+			var f := i / 16.0
+			var bump := sin(f * PI * 0.9 + 0.3) * rect.size.y * 0.1 + sin(f * 9.0) * 3.0
+			points.append(Vector2(rect.position.x + rect.size.x * f, rect.position.y - bump))
+		points.append(rect.end)
+		canvas.draw_colored_polygon(points, color)
+		# Franjas y doblez
+		for i in 4:
+			var x := rect.position.x + rect.size.x * (0.14 + i * 0.2)
+			canvas.draw_line(Vector2(x, rect.position.y + 4), Vector2(x - 14, rect.end.y), Color(1, 1, 1, 0.22), 14.0)
+		var fold := StyleBoxFlat.new()
+		fold.bg_color = Color(1, 1, 1, 0.92) if not _night else Color(0.82, 0.8, 0.95)
+		fold.set_corner_radius_all(14)
+		canvas.draw_style_box(fold, Rect2(rect.end.x - 12, rect.position.y - rect.size.y * 0.08, size.x * 0.06, rect.size.y * 1.08))
+		canvas.draw_rect(Rect2(rect.position.x, rect.end.y - 2, rect.size.x + size.x * 0.05, 6), color.darkened(0.12))
+	var head := _world_to_screen(_puppet.node_position("Face")) - global_position
+	var font := get_theme_default_font()
+	for i in 3:
+		var phase := fmod(_time * 0.45 + i * 0.33, 1.0)
+		var at := head + Vector2(size.x * 0.1 + phase * 50.0, -size.y * 0.09 - phase * 80.0)
+		canvas.draw_string(font, at, "z" if i < 2 else "Z", HORIZONTAL_ALIGNMENT_LEFT, -1, int(16 + phase * 18.0), Color(1, 1, 1, sin(phase * PI)))
+
+
 # --- Animación continua --------------------------------------------------------------
 
 func _process(delta: float) -> void:
@@ -344,19 +481,24 @@ func _process(delta: float) -> void:
 	var head_goal := Vector2(goal["head"][0], goal["head"][1])
 	var roll_goal: float = goal["roll"]
 	var mouth_goal := Vector2(goal["mouth"][0], goal["mouth"][1])
+	var arms_goal: float = goal.get("arms", 0.0)
 	if _sleeping:
 		eyes_goal = 1.0
-		head_goal = Vector2(0.2, -0.6)
-		roll_goal = 0.35
-		mouth_goal = Vector2(0.5, 0.05)
+		head_goal = Vector2(0.15, -0.25) if _in_bed else Vector2(0.2, -0.6)
+		roll_goal = 0.0 if _in_bed else 0.35
+		mouth_goal = Vector2(0.5, 0.04)
+		arms_goal = 0.75 if _in_bed else 0.3
 	elif _turned_away:
+		# Bloqueada: brazos cruzados, ojos cerrados y la cara para otro lado.
 		eyes_goal = 1.0
 		head_goal = Vector2(-1.0, 0.2)
 		roll_goal = -0.2
 		mouth_goal = Vector2(0.0, 0.0)
+		arms_goal = 1.0
 	_eyes = lerpf(_eyes, eyes_goal, k)
 	_head = _head.lerp(head_goal, k)
 	_roll = lerpf(_roll, roll_goal, k)
+	_arms = lerpf(_arms, arms_goal, 1.0 - exp(-delta * 5.0))
 	_brow = lerpf(_brow, float(goal["brow"]), k)
 	_brow_y = lerpf(_brow_y, float(goal["brow_y"]), k)
 	_blush = lerpf(_blush, float(goal.get("blush", 0.0)), k)
@@ -377,75 +519,53 @@ func _process(delta: float) -> void:
 	var blink_now := (1.0 - absf(_blink * 2.0 - 1.0)) if _blink > 0.0 else 0.0
 	var eyes := maxf(_eyes, blink_now)
 
-	# Vida propia: respira y se mece un poco.
-	var sway := Vector2(sin(_time * 0.7) * 0.12, sin(_time * 0.53 + 1.0) * 0.1)
-	var breath := 0.5 + 0.5 * sin(_time * 1.8)
+	# Vida propia: respira y se mece un poco (dormida, apenas).
+	var calm := 0.25 if _sleeping else 1.0
+	var sway := Vector2(sin(_time * 0.7) * 0.12, sin(_time * 0.53 + 1.0) * 0.1) * calm
+	var breath := 0.5 + 0.5 * sin(_time * (1.2 if _sleeping else 1.8))
 	var walk_bob := absf(sin(_time * 9.0)) * 0.025 * absf(_walk)
+	var talk_nod := sin(_talk_time * 7.0) * 0.06 if _talking else 0.0
 	var p := _puppet
-	p.set_param(P_HEAD, _head.x + act_head.x + sway.x + _walk * 0.5, _head.y + act_head.y + sway.y)
-	p.set_param(P_HEAD_ROLL, _roll + act_roll + sin(_time * 0.9) * 0.05 + act_shake * 0.08)
-	p.set_param(P_BODY, act_body.x + sway.x * 0.5 + _walk * 0.6, act_body.y + sway.y * 0.4)
-	p.set_param(P_BODY_ROLL, sin(_time * 9.0) * 0.25 * absf(_walk) + act_shake * 0.15)
+	p.set_param(P_HEAD, _head.x + act_head.x + sway.x + _walk * 0.5, _head.y + act_head.y + sway.y + talk_nod)
+	p.set_param(P_HEAD_ROLL, _roll + act_roll + sin(_time * 0.9) * 0.05 * calm + act_shake * 0.08)
+	p.set_param(P_BODY, act_body.x + act_lean + sway.x * 0.5 + _walk * 0.6, act_body.y + sway.y * 0.4)
+	p.set_param(P_BODY_ROLL, sin(_time * 9.0) * 0.25 * absf(_walk) + act_shake * 0.15 + act_lean * 0.15)
 	p.set_param(P_BODY_X, act_shake * 0.2)
 	p.set_param(P_MOUTH, _mouth.x, _mouth.y)
 	p.set_param(P_BLINK_L, eyes)
 	p.set_param(P_BLINK_R, eyes)
-	p.set_param(P_EYE_L, clampf(_head.x * 0.5, -1.0, 1.0))
-	p.set_param(P_EYE_R, clampf(_head.x * 0.5, -1.0, 1.0))
+	p.set_param(P_EYE_L, clampf((_head.x + act_head.x) * 0.5, -1.0, 1.0))
+	p.set_param(P_EYE_R, clampf((_head.x + act_head.x) * 0.5, -1.0, 1.0))
 	p.set_param(P_BREATH, breath)
-	p.set_param(P_ARM_L, act_arm_l)
-	p.set_param(P_ARM_R, act_arm_r)
+	_apply_arms(calm)
 	p.set_node_offset("Eyebrow:: Left", Vector2(0, _brow_y), -_brow)
 	p.set_node_offset("Eyebrow:: Right", Vector2(0, _brow_y), _brow)
 	p.set_node_opacity("blush", _blush)
+	p.set_node_opacity("tears", act_tears)
 	if _in_bed:
 		_lie_in_bed()
 	else:
 		p.position.y = act_jump + walk_bob
 		p.scale = Vector3.ONE * (1.0 + act_zoom)
-	p.set_tint(Color(0.6, 0.6, 0.8) if _sleeping else (Color(0.86, 0.84, 0.95) if _night else Color.WHITE))
+	p.set_tint(Color(0.62, 0.62, 0.82) if _sleeping else (Color(0.84, 0.82, 0.95) if _night else Color.WHITE))
 	p.update(delta)
 	if _sleeping:
 		_foreground.queue_redraw()
 
 
-## Acostada de lado sobre la cama: pies a la izquierda, cabeza en la almohada.
-func _lie_in_bed() -> void:
-	var bed := room.bed_rect()
-	var meters_per_pixel := VIEW_HEIGHT / maxf(1.0, size.y)
-	# Más larga que la cama: el cuerpo queda bajo la cobija y la cara, que
-	# está al 80 % de su altura, justo sobre la almohada.
-	var length_px := bed.size.x * 1.45
-	var length := length_px * meters_per_pixel
-	var feet := Vector2(bed.position.x + bed.size.x * 0.7 - length_px * 0.8, bed.position.y + bed.size.y * 0.2)
-	_puppet.scale = Vector3.ONE * (length / MODEL_HEIGHT)
-	_puppet.rotation.z = -PI / 2.0
-	_puppet.position = Vector3(_screen_to_world_x(global_position.x + feet.x), VIEW_TOP - feet.y * meters_per_pixel, 0.0)
-
-
-## Lo que va por delante de ella: la cobija y las "Zzz".
-func _draw_foreground() -> void:
-	if not _sleeping:
-		return
-	if _in_bed:
-		var bed := room.bed_rect()
-		var blanket := StyleBoxFlat.new()
-		var theme: Dictionary = RoomBackground.THEMES[room.theme_id]
-		var color: Color = theme["curtain"].lightened(0.1)
-		color.a = 1.0
-		blanket.bg_color = color
-		blanket.set_corner_radius_all(18)
-		_foreground.draw_style_box(blanket, Rect2(bed.position.x - bed.size.x * 0.44, bed.position.y - bed.size.y * 0.45, bed.size.x * 1.0, bed.size.y * 1.3))
-		var fold := StyleBoxFlat.new()
-		fold.bg_color = Color(1, 1, 1, 0.85)
-		fold.set_corner_radius_all(10)
-		_foreground.draw_style_box(fold, Rect2(bed.position.x + bed.size.x * 0.5, bed.position.y - bed.size.y * 0.45, bed.size.x * 0.07, bed.size.y * 1.3))
-	var head := _world_to_screen(_puppet.node_position("Face")) - global_position
-	var font := get_theme_default_font()
-	for i in 3:
-		var phase := fmod(_time * 0.5 + i * 0.33, 1.0)
-		var at := head + Vector2(30 + phase * 46.0, -40 - phase * 70.0)
-		_foreground.draw_string(font, at, "z" if i < 2 else "Z", HORIZONTAL_ALIGNMENT_LEFT, -1, int(14 + phase * 14.0), Color(1, 1, 1, 1.0 - phase))
+## Brazos: postura de la emoción + gesto + un balanceo leve.
+func _apply_arms(calm: float) -> void:
+	var idle := sin(_time * 1.1) * 0.035 * calm
+	var swing := sin(_time * 9.0) * 0.3 * absf(_walk)
+	var posture := _arms * ARM_CROSSED
+	var left := posture + act_arm_l + idle + swing
+	var right := posture + act_arm_r + idle - swing
+	# Por delante del cuerpo cuando los recoge mucho o lo pide el gesto.
+	var front := act_front > 0.5 or _arms > 0.55
+	_puppet.set_node_offset(ARM_L, Vector2.ZERO, left, Vector2.ONE, ARM_L_PIVOT)
+	_puppet.set_node_offset(ARM_R, Vector2.ZERO, -right, Vector2.ONE, ARM_R_PIVOT)
+	_puppet.set_node_z(ARM_L, ARM_FRONT_Z if front else 0.0)
+	_puppet.set_node_z(ARM_R, ARM_FRONT_Z + 0.05 if front else 0.0)
 
 
 # --- Construcción ------------------------------------------------------------------------
@@ -486,24 +606,29 @@ func _update_render_scale() -> void:
 	_container.scale = Vector2.ONE / factor
 
 
-## Rubor: dos manchas rosadas suaves sobre las mejillas, recortadas a la cara.
+## Mancha redonda y suave de un color (para rubor y lágrimas).
+static func _soft_spot(color: Color, width: int, height: int) -> Image:
+	var image := Image.create(width, height, false, Image.FORMAT_RGBA8)
+	for y in height:
+		for x in width:
+			var d := Vector2((x + 0.5) / width - 0.5, (y + 0.5) / height - 0.5).length() * 2.0
+			image.set_pixel(x, y, Color(color.r, color.g, color.b, color.a * clampf(1.0 - d, 0.0, 1.0)))
+	return image
+
+
+## Rubor: dos manchas rosadas sobre las mejillas, recortadas a la cara.
 func _add_blush() -> void:
-	var gradient := Gradient.new()
-	gradient.set_color(0, Color(1.0, 0.35, 0.45, 0.6))
-	gradient.set_color(1, Color(1.0, 0.35, 0.45, 0.0))
-	var spot := GradientTexture2D.new()
-	spot.gradient = gradient
-	spot.fill = GradientTexture2D.FILL_RADIAL
-	spot.fill_from = Vector2(0.5, 0.5)
-	spot.fill_to = Vector2(0.5, 0.0)
-	spot.width = 128
-	spot.height = 128
-	# Una sola capa ancha con las dos mejillas.
-	var image := Image.create(512, 128, false, Image.FORMAT_RGBA8)
-	var source := spot.get_image()
-	if source == null:
-		return
-	source.convert(Image.FORMAT_RGBA8)
-	image.blit_rect(source, Rect2i(0, 0, 128, 128), Vector2i(0, 0))
-	image.blit_rect(source, Rect2i(0, 0, 128, 128), Vector2i(384, 0))
+	var spot := _soft_spot(Color(1.0, 0.35, 0.45, 0.65), 48, 48)
+	var image := Image.create(192, 48, false, Image.FORMAT_RGBA8)
+	image.blit_rect(spot, Rect2i(0, 0, 48, 48), Vector2i(0, 0))
+	image.blit_rect(spot, Rect2i(0, 0, 48, 48), Vector2i(144, 0))
 	_puppet.add_overlay("blush", "Face", ImageTexture.create_from_image(image), Vector2(10, 190), Vector2(520, 130), -0.05, "Face")
+
+
+## Lágrimas: dos hilos celestes que bajan desde los ojos.
+func _add_tears() -> void:
+	var drop := _soft_spot(Color(0.55, 0.82, 1.0, 0.95), 12, 64)
+	var image := Image.create(96, 64, false, Image.FORMAT_RGBA8)
+	image.blit_rect(drop, Rect2i(0, 0, 12, 64), Vector2i(8, 0))
+	image.blit_rect(drop, Rect2i(0, 0, 12, 64), Vector2i(76, 0))
+	_puppet.add_overlay("tears", "Face", ImageTexture.create_from_image(image), Vector2(12, 235), Vector2(440, 250), -0.06, "Face")

@@ -11,7 +11,7 @@ extends RefCounted
 ## por uno seguro, para que un error de la IA nunca rompa la app.
 
 const EMOTIONS := ["neutral", "feliz", "triste", "enojada", "sorprendida", "avergonzada", "pensativa", "coqueta"]
-const ACTIONS := ["ninguna", "saludar", "asentir", "negar", "cruzar_brazos", "saltar", "mirar_otro_lado", "golpear", "llorar"]
+const ACTIONS := ["ninguna", "saludar", "asentir", "negar", "cruzar_brazos", "saltar", "celebrar", "abrazar", "mirar_otro_lado", "golpear", "llorar"]
 const TREATMENTS := ["bueno", "neutral", "malo", "abusivo"]
 ## Cosas que ella puede hacer con la interfaz (ver InterfaceActions).
 const INTERFACE_ACTIONS := ["ninguna", "pedir_regalo", "fondo_dia", "fondo_atardecer", "fondo_noche", "pasear",

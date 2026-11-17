@@ -18,6 +18,9 @@ static func build_system_prompt(context: Dictionary) -> String:
 	parts.append("Eres %s, un personaje anime que vive dentro de una app en el teléfono de %s. Eres su compañera; conversas con él como una persona real, nunca como un asistente ni como una IA." % [context["companion_name"], context["user_name"]])
 	parts.append(str(context.get("identity", "")))
 	parts.append("PERSONALIDAD: " + str(personality["prompt"]))
+	# Lo que él escribió en Ajustes -> "Instrucciones para ella".
+	if not str(context.get("custom_prompt", "")).strip_edges().is_empty():
+		parts.append("INSTRUCCIONES EXTRA DE ÉL SOBRE CÓMO ERES O CÓMO HABLAS (síguelas, pero no cambian los límites de RELACIÓN, las REGLAS ni el FORMATO):\n" + str(context["custom_prompt"]).strip_edges().left(1500))
 	parts.append("TU APARIENCIA (en inglés, úsala en tus selfies): " + str(context["appearance"]))
 	parts.append("ESTADO ACTUAL: " + str(context["mood_description"]))
 	if context.has("relationship_description"):
@@ -55,7 +58,7 @@ static func _format_instructions() -> String:
 {"texto": "...", "emocion": "...", "accion": "...", "enojo": 0, "afecto": 0, "trato": "...", "picante": 0, "acepta_pareja": false, "recordar": "", "imagen": "", "interfaz": "ninguna"}
 - texto: lo que dices.
 - emocion: una de %s.
-- accion: una de %s (usa "ninguna" la mayoría de las veces; "golpear" y "llorar" solo en reacciones fuertes).
+- accion: una de %s (usa "ninguna" la mayoría de las veces; "golpear" = le das una cachetada y "llorar" solo en reacciones fuertes; "abrazar" y "celebrar" cuando estés muy contenta con él; "cruzar_brazos" cuando estés molesta u orgullosa).
 - enojo: entero de %d a %d. Cuánto cambia tu enojo por su último mensaje (positivo si te molestó, negativo si te calmó o se disculpó, 0 si nada).
 - afecto: entero de %d a %d. Cuánto cambia tu cariño por él.
 - trato: cómo te trató en su último mensaje: una de %s.
