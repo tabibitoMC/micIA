@@ -45,7 +45,13 @@ const EMOTIONS := {
 ## Modelo a cargar (se fija antes de añadir el avatar a la escena).
 var model_path := DEFAULT_MODEL_PATH
 
+## Fondo de la casa (lo pone main.gd): ahí están los lugares y la cama.
+var room: RoomBackground
+
 var _viewport: SubViewport
+var _foreground: Control
+var _night := false
+var _in_bed := false
 var _container: SubViewportContainer
 var _camera: Camera3D
 var _puppet: Puppet
@@ -223,8 +229,42 @@ func set_turned_away(away: bool) -> void:
 	_turned_away = away
 
 
+# --- Lugares -----------------------------------------------------------------------
+
+func set_room(env_id: String, time_theme: String) -> void:
+	if room:
+		room.set_place(env_id)
+		room.set_room_theme(time_theme)
+	set_time_of_day(time_theme)
+
+
+func set_time_of_day(time_theme: String) -> void:
+	_night = time_theme == "noche"
+
+
+func current_room() -> String:
+	return room.place if room else ""
+
+
+func window_screen_position() -> Variant:
+	if room == null or room.place == "patio":
+		return null
+	return room.window_global_center()
+
+
+## Dormir: en el dormitorio se acuesta en la cama, tapada con la cobija.
 func set_sleeping(sleeping: bool) -> void:
+	if sleeping == _sleeping or not _ready_ok:
+		return
 	_sleeping = sleeping
+	_in_bed = sleeping and room != null and room.place == "dormitorio"
+	_reset_actions()
+	_puppet.physics_enabled = not _in_bed
+	if not _in_bed:
+		_puppet.rotation.z = 0.0
+		_puppet.position = Vector3(_home_x, 0.0, 0.0)
+		_puppet.reset_physics()
+	_foreground.queue_redraw()
 
 
 func is_sleeping() -> bool:
@@ -358,10 +398,54 @@ func _process(delta: float) -> void:
 	p.set_node_offset("Eyebrow:: Left", Vector2(0, _brow_y), -_brow)
 	p.set_node_offset("Eyebrow:: Right", Vector2(0, _brow_y), _brow)
 	p.set_node_opacity("blush", _blush)
-	p.position.y = act_jump + walk_bob
-	p.scale = Vector3.ONE * (1.0 + act_zoom)
-	p.set_tint(Color(0.55, 0.55, 0.75) if _sleeping else Color.WHITE)
+	if _in_bed:
+		_lie_in_bed()
+	else:
+		p.position.y = act_jump + walk_bob
+		p.scale = Vector3.ONE * (1.0 + act_zoom)
+	p.set_tint(Color(0.6, 0.6, 0.8) if _sleeping else (Color(0.86, 0.84, 0.95) if _night else Color.WHITE))
 	p.update(delta)
+	if _sleeping:
+		_foreground.queue_redraw()
+
+
+## Acostada de lado sobre la cama: pies a la izquierda, cabeza en la almohada.
+func _lie_in_bed() -> void:
+	var bed := room.bed_rect()
+	var meters_per_pixel := VIEW_HEIGHT / maxf(1.0, size.y)
+	# Más larga que la cama: el cuerpo queda bajo la cobija y la cara, que
+	# está al 80 % de su altura, justo sobre la almohada.
+	var length_px := bed.size.x * 1.45
+	var length := length_px * meters_per_pixel
+	var feet := Vector2(bed.position.x + bed.size.x * 0.7 - length_px * 0.8, bed.position.y + bed.size.y * 0.2)
+	_puppet.scale = Vector3.ONE * (length / MODEL_HEIGHT)
+	_puppet.rotation.z = -PI / 2.0
+	_puppet.position = Vector3(_screen_to_world_x(global_position.x + feet.x), VIEW_TOP - feet.y * meters_per_pixel, 0.0)
+
+
+## Lo que va por delante de ella: la cobija y las "Zzz".
+func _draw_foreground() -> void:
+	if not _sleeping:
+		return
+	if _in_bed:
+		var bed := room.bed_rect()
+		var blanket := StyleBoxFlat.new()
+		var theme: Dictionary = RoomBackground.THEMES[room.theme_id]
+		var color: Color = theme["curtain"].lightened(0.1)
+		color.a = 1.0
+		blanket.bg_color = color
+		blanket.set_corner_radius_all(18)
+		_foreground.draw_style_box(blanket, Rect2(bed.position.x - bed.size.x * 0.44, bed.position.y - bed.size.y * 0.45, bed.size.x * 1.0, bed.size.y * 1.3))
+		var fold := StyleBoxFlat.new()
+		fold.bg_color = Color(1, 1, 1, 0.85)
+		fold.set_corner_radius_all(10)
+		_foreground.draw_style_box(fold, Rect2(bed.position.x + bed.size.x * 0.5, bed.position.y - bed.size.y * 0.45, bed.size.x * 0.07, bed.size.y * 1.3))
+	var head := _world_to_screen(_puppet.node_position("Face")) - global_position
+	var font := get_theme_default_font()
+	for i in 3:
+		var phase := fmod(_time * 0.5 + i * 0.33, 1.0)
+		var at := head + Vector2(30 + phase * 46.0, -40 - phase * 70.0)
+		_foreground.draw_string(font, at, "z" if i < 2 else "Z", HORIZONTAL_ALIGNMENT_LEFT, -1, int(14 + phase * 14.0), Color(1, 1, 1, 1.0 - phase))
 
 
 # --- Construcción ------------------------------------------------------------------------
@@ -378,6 +462,12 @@ func _build_viewport() -> void:
 	_viewport.transparent_bg = true
 	_viewport.own_world_3d = true
 	_container.add_child(_viewport)
+
+	_foreground = Control.new()
+	_foreground.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_foreground.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_foreground.draw.connect(_draw_foreground)
+	add_child(_foreground)
 
 	_camera = Camera3D.new()
 	_camera.projection = Camera3D.PROJECTION_ORTHOGONAL

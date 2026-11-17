@@ -6,6 +6,17 @@ Proyecto personal de una asistente / amiga con IA. No lo voy a comercializar ni 
 - **IA:** API de Mistral (plan gratuito)
 - **Plataformas:** Android (APK) y Linux ARM64 (consolas tipo Anbernic)
 
+## Versión 2.0 — Groq + avatar 2D
+
+- **IA:** Groq (`https://api.groq.com/openai/v1`). Chat con `openai/gpt-oss-120b`; las fotos van a `qwen/qwen3.8-27b`. La clave se pide al abrir la app (console.groq.com → Claves API).
+- **Avatar:** marioneta 2D por capas estilo VTuber (`src/avatar/puppet/puppet.gd` + `src/avatar/avatar_puppet.gd`): físicas en pelo, orejas y cola, parpadeo, boca al hablar, emociones y gestos. Ya no hay avatar 3D ni addons de VRM.
+- **Modelo:** `assets/puppets/aka.puppet` (Aka, de los ejemplos de Inochi2D, CC BY 4.0, seagetch).
+- **Tu propio modelo:** ármalo en Inochi Creator (gratis), exporta el `.inx` y conviértelo:
+  `python3 tools/bake_puppet.py MiModelo.inx assets/puppets/mimodelo.puppet` y pon esa ruta en `src/characters/characters.gd`. No soporta MeshGroup.
+- **Lugares:** dormitorio, sala, cocina y patio dibujados en 2D (`src/ui/room_background.gd`); en el dormitorio se acuesta a dormir.
+
+> Las secciones de abajo que hablen de Mistral, VRM o habitaciones 3D describen la versión 1 y ya no aplican.
+
 ## Estado
 
 | Fase | Qué incluye | Estado |

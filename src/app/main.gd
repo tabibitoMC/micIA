@@ -338,6 +338,8 @@ func _rebuild_avatar() -> void:
 		if avatar_3d.is_ready():
 			_avatar = avatar_3d
 			_avatar_is_3d = true
+			avatar_3d.room = _room
+			avatar_3d.set_room(str(Settings.get_value("location")), str(Settings.get_value("room_theme")))
 		else:
 			avatar_3d.queue_free()
 			_chat.add_message(ChatView.Sender.SYSTEM, "No se pudo cargar el avatar VTuber; uso el dibujado.")
@@ -680,9 +682,6 @@ func _on_welcome_finished() -> void:
 
 
 func _open_locations() -> void:
-	if true:
-		_chat.add_message(ChatView.Sender.SYSTEM, "Los lugares vuelven pronto con el avatar 2D.")
-		return
 	_hide_panels()
 	_location_panel.custom_minimum_size = Vector2(minf(get_viewport_rect().size.x - 60.0, 320.0), 0)
 	_location_panel.refresh(_avatar.current_room())

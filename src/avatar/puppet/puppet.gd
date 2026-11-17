@@ -38,6 +38,8 @@ vec3 shift_hue(vec3 color, float amount) {
 }
 
 void fragment() {
+	// Fuera de la textura no hay nada (si no, el borde se estira en rayas).
+	if (UV.x < 0.0 || UV.x > 1.0 || UV.y < 0.0 || UV.y > 1.0) discard;
 	vec4 c = texture(tex, UV);
 %s
 }

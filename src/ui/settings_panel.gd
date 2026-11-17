@@ -165,6 +165,8 @@ func load_values() -> void:
 	_horde_key.text = str(Settings.get_value("horde_api_key"))
 	_room_theme.select(maxi(0, RoomBackground.theme_ids().find(str(Settings.get_value("room_theme")))))
 	_avatar_3d.button_pressed = bool(Settings.get_value("avatar_3d"))
+	# Ya no hay avatar 3D: la opción se oculta.
+	_avatar_3d.visible = false
 	_voice_enabled.button_pressed = bool(Settings.get_value("voice_enabled"))
 	_voice_rate.value = float(Settings.get_value("voice_rate"))
 	_voice_pitch.value = float(Settings.get_value("voice_pitch"))
