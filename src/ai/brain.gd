@@ -37,6 +37,12 @@ func is_thinking() -> bool:
 ## Mensaje escrito por el usuario.
 ## Tipo del último evento enviado ("" = mensaje normal).
 var _pending_kind := ""
+## Palabras que, repetidas en mensajes seguidos, la hacen sonar a disco rayado.
+const CATCHPHRASES := ["tonto", "tonta", "idiota", "baka", "supongo", "hmph", "presumido"]
+
+## Lo último que se mandó a la IA (para pedirle que reescriba si se repite).
+var _pending_messages: Array = []
+var _retried := false
 
 
 func send_message(text: String) -> void:
@@ -77,7 +83,7 @@ func _ask(user_entry: Dictionary, api_content: Variant = null) -> void:
 		failed.emit("Espera, todavía está pensando.")
 		return
 	if not Settings.has_api_key():
-		failed.emit("Falta tu API key de Mistral. Ponla en Ajustes.")
+		failed.emit("Falta tu API key de Groq. Ponla en Ajustes.")
 		return
 
 	_pending_user_entry = user_entry
@@ -85,8 +91,46 @@ func _ask(user_entry: Dictionary, api_content: Variant = null) -> void:
 	messages.append_array(Memory.recent_for_api(CONTEXT_MESSAGES))
 	messages.append({"role": "user", "content": api_content if api_content != null else user_entry["content"]})
 
+	_pending_messages = messages
+	_retried = false
 	thinking_changed.emit(true)
 	_client.chat(messages, str(Settings.get_value("api_key")), str(Settings.get_value("model")), true, 0.95)
+
+
+## Si su respuesta repite una frase que ya dijo hace poco, devuelve esa frase
+## (o "" si no repite). Compara grupos de 3 palabras seguidas y el inicio.
+func _repeated_phrase(text: String) -> String:
+	var words := _words(text)
+	if words.size() < 3:
+		return ""
+	var recent := _recent_lines(5)
+	# Muletillas e insultos cariñosos: no dos mensajes seguidos.
+	for line in recent.slice(maxi(0, recent.size() - 2)):
+		var old_words := _words(str(line))
+		for word in CATCHPHRASES:
+			if word in words and word in old_words:
+				return word
+	for line in recent:
+		var old := _words(str(line))
+		if old.size() >= 3 and words.slice(0, 3) == old.slice(0, 3):
+			return " ".join(words.slice(0, 3))
+		var seen := {}
+		for i in old.size() - 2:
+			seen[" ".join(old.slice(i, i + 3))] = true
+		for i in words.size() - 2:
+			var trio := " ".join(words.slice(i, i + 3))
+			if seen.has(trio):
+				return trio
+	return ""
+
+
+static func _words(text: String) -> Array:
+	var regex := RegEx.new()
+	regex.compile("[a-záéíóúñü]+")
+	var words: Array = []
+	for match in regex.search_all(text.to_lower()):
+		words.append(match.get_string())
+	return words
 
 
 ## Lo que ella dijo en sus últimas respuestas (para que no lo repita).
@@ -144,11 +188,21 @@ func _keep_mood_coherent(reply: AIReply) -> void:
 
 
 func _on_completed(content: String) -> void:
-	thinking_changed.emit(false)
 	var reply := AIReply.from_text(content)
 	if reply == null:
+		thinking_changed.emit(false)
 		failed.emit("No entendí la respuesta de la IA. Intenta de nuevo.")
 		return
+	# Si repite una frase de hace poco, se le pide UNA vez que la reescriba.
+	var repeated := _repeated_phrase(reply.text)
+	if not repeated.is_empty() and not _retried and not _pending_messages.is_empty():
+		_retried = true
+		var retry := _pending_messages.duplicate()
+		retry.append({"role": "assistant", "content": content})
+		retry.append({"role": "user", "content": "[EVENTO] (Mensaje del sistema, no de él.) Tu respuesta repite \"%s\", que ya dijiste hace poco. Responde de nuevo lo mismo pero con palabras totalmente distintas, sin esa frase ni muletillas repetidas. Mismo formato JSON." % repeated})
+		_client.chat(retry, str(Settings.get_value("api_key")), str(Settings.get_value("model")), true, 1.0)
+		return
+	thinking_changed.emit(false)
 
 	# El intercambio solo se guarda si salió bien, así el historial nunca
 	# queda con dos mensajes seguidos del usuario.

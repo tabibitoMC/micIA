@@ -36,6 +36,15 @@ uniform vec2 bend_elbow = vec2(0.0);
 uniform float bend_upper = 0.0;
 uniform float bend_fore = 0.0;
 uniform float bend_soft = 120.0;
+// Hombro blando: cerca del pivote el giro se reparte poco a poco, así la
+// manga sigue pegada al cuerpo en vez de despegarse como una pieza aparte.
+uniform float bend_shoulder = 0.0;
+// Balanceo tipo cadena (pelo, falda, lazo): las puntas se mueven más que la
+// raíz. sway = desplazamiento de la punta, en píxeles de la capa.
+uniform bool sway_on = false;
+uniform vec2 sway = vec2(0.0);
+uniform float sway_root = 0.0;
+uniform float sway_length = 1.0;
 
 vec2 rotate_around(vec2 p, vec2 center, float angle) {
 	vec2 d = p - center;
@@ -45,15 +54,21 @@ vec2 rotate_around(vec2 p, vec2 center, float angle) {
 }
 
 void vertex() {
+	vec2 original = VERTEX.xy;
 	if (bend_on) {
 		vec2 axis = bend_elbow - bend_pivot;
 		float len = max(length(axis), 1.0);
-		float along = dot(VERTEX.xy - bend_pivot, axis / len);
+		float along = dot(original - bend_pivot, axis / len);
 		// Peso del antebrazo: 0 arriba del codo, 1 abajo, suave en el medio
 		// (así la manga se curva en vez de quebrarse).
 		float fore = smoothstep(len - bend_soft, len + bend_soft, along);
-		vec2 p = rotate_around(VERTEX.xy, bend_elbow, bend_fore * fore);
-		VERTEX.xy = rotate_around(p, bend_pivot, bend_upper);
+		float upper = bend_shoulder > 0.0 ? smoothstep(-bend_shoulder * 0.3, bend_shoulder, along) : 1.0;
+		vec2 p = rotate_around(original, bend_elbow, bend_fore * fore);
+		VERTEX.xy = rotate_around(p, bend_pivot, bend_upper * upper);
+	}
+	if (sway_on) {
+		float f = clamp((original.y - sway_root) / max(sway_length, 1.0), 0.0, 1.0);
+		VERTEX.xy += sway * pow(f, 1.6);
 	}
 }
 
@@ -142,6 +157,20 @@ class PParam:
 	var driven := false      # lo mueve una física
 
 
+class PSway:
+	var node := -1
+	var root := 0.0
+	var length := 1.0
+	var stiffness := 45.0
+	var damping := 5.0
+	var gain := 1.0
+	var limit := 0.22
+	var bob := Vector2.ZERO
+	var velocity := Vector2.ZERO
+	var started := false
+	var children: Array[int] = []
+
+
 class PPhysics:
 	var node := -1
 	var param := -1
@@ -175,6 +204,7 @@ var damping_scale := 1.0
 var _nodes: Array[PNode] = []
 var _params: Array[PParam] = []
 var _physics: Array[PPhysics] = []
+var _sways: Array[PSway] = []
 var _node_index := {}
 var _param_index := {}
 var _textures: Array[Texture2D] = []
@@ -457,6 +487,14 @@ func get_param(param_name: String) -> Vector2:
 	return _params[index].value if index >= 0 else Vector2.ZERO
 
 
+func part_names() -> Array:
+	var names: Array = []
+	for node in _nodes:
+		if node.type == "part" and node.instance != null:
+			names.append(node.name)
+	return names
+
+
 func param_names() -> Array:
 	return _param_index.keys()
 
@@ -480,19 +518,94 @@ func set_node_offset(node_name: String, translation := Vector2.ZERO, rotation :=
 ## parte de más allá de `elbow` gira además alrededor del codo. Se hace en la
 ## GPU, después de las deformaciones del modelo. Devuelve dónde queda un
 ## punto de la capa (p. ej. la muñeca) y cuánto giró, para mover la mano.
-func set_node_bend(node_name: String, pivot_px: Vector2, elbow_px: Vector2, upper: float, fore: float, soft := 120.0) -> void:
+func set_node_bend(node_name: String, pivot_px: Vector2, elbow_px: Vector2, upper: float, fore: float, soft := 120.0, shoulder := 0.0) -> void:
 	var index: int = _node_index.get(node_name, -1)
 	if index < 0 or _nodes[index].material == null:
 		return
-	var material := _nodes[index].material
 	var active := absf(upper) > 0.0001 or absf(fore) > 0.0001
-	material.set_shader_parameter("bend_on", active)
-	if active:
-		material.set_shader_parameter("bend_pivot", pivot_px)
-		material.set_shader_parameter("bend_elbow", elbow_px)
-		material.set_shader_parameter("bend_upper", upper)
-		material.set_shader_parameter("bend_fore", fore)
-		material.set_shader_parameter("bend_soft", soft)
+	for material in _materials_of(_nodes[index]):
+		material.set_shader_parameter("bend_on", active)
+		if active:
+			material.set_shader_parameter("bend_pivot", pivot_px)
+			material.set_shader_parameter("bend_elbow", elbow_px)
+			material.set_shader_parameter("bend_upper", upper)
+			material.set_shader_parameter("bend_fore", fore)
+			material.set_shader_parameter("bend_soft", soft)
+			material.set_shader_parameter("bend_shoulder", shoulder)
+
+
+## El material de la capa y los de sus copias de máscara (deben deformarse
+## igual o la máscara no calza).
+func _materials_of(node: PNode) -> Array:
+	var list: Array = [node.material]
+	for writer in node.writers:
+		list.append(writer.material_override)
+	return list
+
+
+## Balanceo tipo cadena para una capa (pelo, falda...): un resorte sigue a la
+## raíz de la capa y la punta se queda atrás y rebota, como en las VTubers.
+## stiffness: qué tan rápido vuelve · damping: cuánto frena · gain: amplitud.
+func add_sway(node_name: String, stiffness := 45.0, damping := 5.0, gain := 1.0, limit := 0.22) -> void:
+	var index: int = _node_index.get(node_name, -1)
+	if index < 0 or _nodes[index].instance == null:
+		return
+	var aabb := _nodes[index].instance.mesh.get_aabb()
+	var sway := PSway.new()
+	sway.node = index
+	sway.root = aabb.position.y + aabb.size.y * 0.05
+	sway.length = aabb.size.y * 0.95
+	sway.stiffness = stiffness
+	sway.damping = damping
+	sway.gain = gain
+	sway.limit = limit
+	_sways.append(sway)
+	for material in _materials_of(_nodes[index]):
+		material.set_shader_parameter("sway_on", true)
+		material.set_shader_parameter("sway_root", sway.root)
+		material.set_shader_parameter("sway_length", sway.length)
+	# Las capas hijas pegadas (brillos, sombras) se balancean igual.
+	for child_index in _nodes.size():
+		var child := _nodes[child_index]
+		if child.parent == index and child.instance != null and child.type == "part":
+			sway.children.append(child_index)
+			for material in _materials_of(child):
+				material.set_shader_parameter("sway_on", true)
+				material.set_shader_parameter("sway_root", sway.root - child.base_t.y)
+				material.set_shader_parameter("sway_length", sway.length)
+
+
+func _update_sways(delta: float) -> void:
+	if delta <= 0.0:
+		return
+	var world_px := Vector2(global_position.x, -global_position.y) / unit
+	var h := minf(delta, 0.05)
+	for sway in _sways:
+		var node := _nodes[sway.node]
+		var root3: Vector3 = node.world * Vector3(0.0, sway.root, 0.0)
+		var anchor := Vector2(root3.x, root3.y) + world_px
+		if not sway.started:
+			sway.started = true
+			sway.bob = anchor
+			sway.velocity = Vector2.ZERO
+		# Resorte con amortiguación (en pasos pequeños para que sea estable).
+		var steps := 3
+		for i in steps:
+			var force := (anchor - sway.bob) * sway.stiffness - sway.velocity * sway.damping
+			sway.velocity += force * (h / steps)
+			sway.bob += sway.velocity * (h / steps)
+		var offset := (sway.bob - anchor) * sway.gain
+		var max_offset := sway.length * sway.limit
+		if offset.length() > max_offset:
+			offset = offset.normalized() * max_offset
+		# A coordenadas de la capa (por si está girada).
+		var local3: Vector3 = node.world.basis.inverse() * Vector3(offset.x, offset.y, 0.0)
+		var local := Vector2(local3.x, local3.y)
+		for material in _materials_of(node):
+			material.set_shader_parameter("sway", local)
+		for child_index in sway.children:
+			for material in _materials_of(_nodes[child_index]):
+				material.set_shader_parameter("sway", local)
 
 
 ## Mismo cálculo que el shader de doblez, para un punto de más allá del codo.
@@ -606,6 +719,7 @@ func update(delta: float) -> void:
 	_update_instances()
 	if physics_enabled:
 		_update_physics(delta)
+		_update_sways(delta)
 
 
 ## Empuja la física que mueve un parámetro (p. ej. sacudir una oreja).
@@ -620,6 +734,8 @@ func nudge_physics(param_name: String, impulse: Vector2) -> void:
 func reset_physics() -> void:
 	for physics in _physics:
 		physics.started = false
+	for sway in _sways:
+		sway.started = false
 
 
 # --- Parámetros -----------------------------------------------------------------

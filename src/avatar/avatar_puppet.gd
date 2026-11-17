@@ -172,6 +172,7 @@ func _ready() -> void:
 	# Física más suelta y con más rebote en pelo, orejas, falda y mangas.
 	_puppet.physics_gain = 1.7
 	_puppet.damping_scale = 0.6
+	_add_sways()
 	_add_blush()
 	_add_tears()
 	_puppet.update(0.0)
@@ -673,10 +674,27 @@ func _bend_arm(arm: String, hand: String, pivot: Vector2, elbow: Vector2, pose: 
 	var upper := pose.x * side
 	var fore := pose.y * side
 	_puppet.set_node_offset(arm, Vector2.ZERO, 0.0)
-	_puppet.set_node_bend(arm, pivot, elbow, upper, fore)
+	# Hombro blando: la manga se estira desde el hombro en vez de girar
+	# como una pieza suelta.
+	_puppet.set_node_bend(arm, pivot, elbow, upper, fore, 160.0, 320.0)
 	var wrist := _puppet.node_base_translation(hand)
 	var moved := Puppet.bent_point(wrist, pivot, elbow, upper, fore)
 	_puppet.set_node_offset(hand, moved - wrist, upper + fore)
+
+
+## Balanceo en cadena (como las físicas de los modelos VTuber): el pelo, la
+## falda y el lazo siguen a la cabeza y al cuerpo con retraso y rebote.
+func _add_sways() -> void:
+	for node_name in _puppet.part_names():
+		var lower: String = str(node_name).to_lower()
+		if lower.contains("shadow") or lower.contains("light") or lower.contains("ligth"):
+			continue
+		if lower.contains("hair"):
+			_puppet.add_sway(node_name, 38.0, 4.0, 1.5, 0.18)
+		elif lower.begins_with("skirt"):
+			_puppet.add_sway(node_name, 26.0, 3.2, 1.1, 0.12)
+		elif lower.begins_with("ribbon"):
+			_puppet.add_sway(node_name, 22.0, 2.6, 1.4, 0.25)
 
 
 ## Cola con resorte: menea según la emoción y se queda atrás cuando ella se
