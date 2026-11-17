@@ -29,6 +29,33 @@ uniform float opacity = 1.0;
 uniform vec3 tint : source_color = vec3(1.0);
 uniform float hue_shift = 0.0;
 uniform float threshold = 0.5;
+// Doblez tipo brazo (hombro + codo), en píxeles de la capa. Ver set_node_bend().
+uniform bool bend_on = false;
+uniform vec2 bend_pivot = vec2(0.0);
+uniform vec2 bend_elbow = vec2(0.0);
+uniform float bend_upper = 0.0;
+uniform float bend_fore = 0.0;
+uniform float bend_soft = 120.0;
+
+vec2 rotate_around(vec2 p, vec2 center, float angle) {
+	vec2 d = p - center;
+	float s = sin(angle);
+	float c = cos(angle);
+	return center + vec2(d.x * c - d.y * s, d.x * s + d.y * c);
+}
+
+void vertex() {
+	if (bend_on) {
+		vec2 axis = bend_elbow - bend_pivot;
+		float len = max(length(axis), 1.0);
+		float along = dot(VERTEX.xy - bend_pivot, axis / len);
+		// Peso del antebrazo: 0 arriba del codo, 1 abajo, suave en el medio
+		// (así la manga se curva en vez de quebrarse).
+		float fore = smoothstep(len - bend_soft, len + bend_soft, along);
+		vec2 p = rotate_around(VERTEX.xy, bend_elbow, bend_fore * fore);
+		VERTEX.xy = rotate_around(p, bend_pivot, bend_upper);
+	}
+}
 
 vec3 shift_hue(vec3 color, float amount) {
 	const vec3 k = vec3(0.57735);
@@ -443,6 +470,36 @@ func set_node_offset(node_name: String, translation := Vector2.ZERO, rotation :=
 		_nodes[index].user_rz = rotation
 		_nodes[index].user_s = scale_by
 		_nodes[index].user_pivot = pivot_px
+
+
+## Dobla una capa como un brazo: gira todo alrededor de `pivot` (hombro) y la
+## parte de más allá de `elbow` gira además alrededor del codo. Se hace en la
+## GPU, después de las deformaciones del modelo. Devuelve dónde queda un
+## punto de la capa (p. ej. la muñeca) y cuánto giró, para mover la mano.
+func set_node_bend(node_name: String, pivot_px: Vector2, elbow_px: Vector2, upper: float, fore: float, soft := 120.0) -> void:
+	var index: int = _node_index.get(node_name, -1)
+	if index < 0 or _nodes[index].material == null:
+		return
+	var material := _nodes[index].material
+	var active := absf(upper) > 0.0001 or absf(fore) > 0.0001
+	material.set_shader_parameter("bend_on", active)
+	if active:
+		material.set_shader_parameter("bend_pivot", pivot_px)
+		material.set_shader_parameter("bend_elbow", elbow_px)
+		material.set_shader_parameter("bend_upper", upper)
+		material.set_shader_parameter("bend_fore", fore)
+		material.set_shader_parameter("bend_soft", soft)
+
+
+## Mismo cálculo que el shader de doblez, para un punto de más allá del codo.
+static func bent_point(point: Vector2, pivot_px: Vector2, elbow_px: Vector2, upper: float, fore: float) -> Vector2:
+	var p := elbow_px + (point - elbow_px).rotated(fore)
+	return pivot_px + (p - pivot_px).rotated(upper)
+
+
+func node_base_translation(node_name: String) -> Vector2:
+	var index: int = _node_index.get(node_name, -1)
+	return _nodes[index].base_t if index >= 0 else Vector2.ZERO
 
 
 ## Mueve un nodo hacia delante (negativo) o hacia atrás en el orden de capas.

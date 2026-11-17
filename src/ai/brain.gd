@@ -35,14 +35,21 @@ func is_thinking() -> bool:
 
 
 ## Mensaje escrito por el usuario.
+## Tipo del último evento enviado ("" = mensaje normal).
+var _pending_kind := ""
+
+
 func send_message(text: String) -> void:
+	_pending_kind = ""
 	# Los mods pueden modificar lo que se envía (lo que se ve en el chat no cambia).
 	_ask(Memory.make_entry("user", Mods.filter_user_message(text), text, Memory.KIND_MESSAGE))
 
 
 ## Algo que pasó en la app (regalo, desbloqueo...). `for_ai` es la descripción
 ## para la IA y `for_chat` lo que se muestra en el chat.
-func send_event(for_ai: String, for_chat: String) -> void:
+## kind = "regalo": su respuesta nunca puede subir el enojo ni bajar el cariño.
+func send_event(for_ai: String, for_chat: String, kind := "") -> void:
+	_pending_kind = kind
 	_ask(Memory.make_entry("user", "[EVENTO] " + for_ai, for_chat, Memory.KIND_EVENT))
 
 
@@ -117,6 +124,25 @@ func _system_prompt() -> String:
 	})
 
 
+## La IA a veces confunde "fingir enojo" (tsundere) con enojarse de verdad.
+## Estas reglas evitan que un regalo o un halago la enojen o la depriman.
+func _keep_mood_coherent(reply: AIReply) -> void:
+	var kind := _pending_kind
+	if kind == "regalo":
+		reply.anger_delta = mini(reply.anger_delta, -5)
+		reply.affection_delta = maxi(reply.affection_delta, 2)
+		reply.treatment = "bueno"
+		if reply.emotion in ["triste", "enojada"]:
+			reply.emotion = "avergonzada"
+	elif reply.treatment == "bueno":
+		reply.anger_delta = mini(reply.anger_delta, 0)
+		reply.affection_delta = maxi(reply.affection_delta, 0)
+		if reply.emotion == "triste":
+			reply.emotion = "avergonzada"
+	elif reply.treatment == "neutral":
+		reply.anger_delta = mini(reply.anger_delta, 3)
+
+
 func _on_completed(content: String) -> void:
 	thinking_changed.emit(false)
 	var reply := AIReply.from_text(content)
@@ -132,6 +158,8 @@ func _on_completed(content: String) -> void:
 	)
 	if not reply.remember.is_empty():
 		Memory.add_fact(reply.remember)
+	_keep_mood_coherent(reply)
+	_pending_kind = ""
 	Mood.apply_reply(reply)
 	Relationship.apply_reply(reply, Personalities.fetch(str(Settings.get_value("personality"))))
 	Mods.notify_reply(reply)

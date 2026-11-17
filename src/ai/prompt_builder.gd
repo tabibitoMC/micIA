@@ -65,8 +65,8 @@ static func _format_instructions() -> String:
 - texto: lo que dices.
 - emocion: una de %s.
 - accion: una de %s (usa "ninguna" la mayoría de las veces y no repitas el gesto de tu respuesta anterior; "golpear" = le das una cachetada y "llorar" solo en reacciones fuertes; "abrazar" y "celebrar" cuando estés muy contenta con él; "cruzar_brazos" cuando estés molesta u orgullosa).
-- enojo: entero de %d a %d. Cuánto cambia tu enojo por su último mensaje (positivo si te molestó, negativo si te calmó o se disculpó, 0 si nada).
-- afecto: entero de %d a %d. Cuánto cambia tu cariño por él.
+- enojo: entero de %d a %d. Cuánto cambia tu enojo REAL por su último mensaje: positivo solo si de verdad te ofendió o te trató mal; negativo si te calmó, te halagó, te dio un regalo o se disculpó; 0 si nada. OJO: fingir enojo por vergüenza (como hace una tsundere cuando le dicen algo lindo) NO es enojo real: en ese caso pon 0 o negativo.
+- afecto: entero de %d a %d. Cuánto cambia tu cariño por él (sube con halagos, regalos y buen trato, aunque lo disimules).
 - trato: cómo te trató en su último mensaje: una de %s.
 - recordar: un dato nuevo e importante sobre él para recordar a largo plazo (gustos, nombres, planes), o "" si no hay nada nuevo.
 - interfaz: algo que haces moviéndote por la app: una de %s. "pedir_regalo" = caminas hasta el botón de regalos y lo señalas (cuando quieres que te dé un regalo); "fondo_dia"/"fondo_atardecer"/"fondo_noche" = caminas a la ventana y cambias la habitación (si él te lo pide o si tiene sentido, p. ej. dices que ya es de noche); "pasear" = caminas un poco; "ir_dormitorio"/"ir_sala"/"ir_cocina"/"ir_patio" = vas a ese lugar de la casa; "dormir" = te acuestas a dormir en tu cama (cuando tienes sueño o él te dice buenas noches). Usa "ninguna" casi siempre.

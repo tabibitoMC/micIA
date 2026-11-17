@@ -520,9 +520,10 @@ func _on_gift_chosen(gift_id: String) -> void:
 	elif Mood.blocked:
 		for_ai += " Sigues demasiado enojada para desbloquearlo todavía."
 
+	for_ai += " Te gusta que te den regalos: reacciona según tu personalidad (puedes disimular), pero en el fondo te alegra y se te pasa el enojo."
 	var for_chat := "Le diste: %s" % gift_label
 	_chat.add_message(ChatView.Sender.EVENT, for_chat)
-	_brain.send_event(for_ai, for_chat)
+	_brain.send_event(for_ai, for_chat, "regalo")
 
 
 ## Caricias o golpes terminados: la IA reacciona (si no está ocupada).
