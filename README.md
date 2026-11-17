@@ -6,6 +6,17 @@ Proyecto personal de una asistente / amiga con IA. No lo voy a comercializar ni 
 - **IA:** API de Mistral (plan gratuito)
 - **Plataformas:** Android (APK) y Linux ARM64 (consolas tipo Anbernic)
 
+## Versión 3.6 — Creador de personajes
+
+Ajustes → "Crear personaje nuevo": nombre, quién es, apariencia, personalidad
+base + texto propio, stats (temperamento, cariño, paciencia, tono de voz),
+adulta o no, y su modelo: una imagen de cuerpo entero (PNG/WebP; si el fondo
+es de un color se quita solo; se tocan ojos, boca y barbilla para que la cara
+se anime), una marioneta `.puppet` o un archivo `.micia` (exportado desde
+aquí para compartir). Se guardan en `user://custom_characters/` y salen en
+el botón "Cambiar". Código: `src/ui/character_creator.gd`,
+`Characters.register_custom()`.
+
 ## Versión 3.5 — Mireya, voz y consultas reales
 
 - **Dos compañeras** (botón "Cambiar" del panel lateral): Aka (zorrita,

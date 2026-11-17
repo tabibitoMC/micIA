@@ -59,6 +59,7 @@ func _ready() -> void:
 	# Al girar la pantalla o cambiar de tamaño, recalcular el tamaño de la UI.
 	get_tree().root.size_changed.connect(apply_ui_scale)
 	_values = DEFAULTS.duplicate()
+	Characters.load_custom()
 	_load_dev_config()
 	_load_saved()
 	apply_ui_scale()

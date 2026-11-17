@@ -112,6 +112,112 @@ static func fetch(id: String) -> Dictionary:
 	return DATA.get(id, DATA[DEFAULT_ID])
 
 
+# --- Personajes creados por el usuario (CharacterCreator) -------------------
+
+const CUSTOM_DIR := "user://custom_characters"
+
+
+## Carga los personajes creados (llamado al iniciar, desde Settings).
+static func load_custom() -> void:
+	var dir := DirAccess.open(CUSTOM_DIR)
+	if dir == null:
+		return
+	for id in dir.get_directories():
+		var data: Variant = JsonStore.load_json(CUSTOM_DIR + "/" + id + "/data.json", {})
+		if data is Dictionary and not (data as Dictionary).is_empty():
+			register_custom(id, data)
+
+
+## Convierte los datos guardados (data.json) en un personaje y su personalidad.
+static func register_custom(id: String, data: Dictionary) -> void:
+	var folder := CUSTOM_DIR + "/" + id
+	var base: Dictionary = Personalities.fetch(str(data.get("personality_base", Personalities.DEFAULT_ID)))
+	var personality := base.duplicate()
+	personality["label"] = "%s (%s)" % [data.get("name", "Personaje"), base["label"]]
+	var extra_text := str(data.get("personality_text", "")).strip_edges()
+	if not extra_text.is_empty():
+		personality["prompt"] = str(base["prompt"]) + " Además: " + extra_text
+	personality["anger_scale"] = float(data.get("temper", 1.0))
+	personality["affection_scale"] = float(data.get("affection", 1.0))
+	personality["block_threshold"] = float(data.get("patience", 80.0))
+	Personalities.register("custom_" + id, personality)
+
+	var adult := bool(data.get("adult", true))
+	var entry := {
+		"label": "%s (creada por ti)" % data.get("name", "Personaje"),
+		"default_name": str(data.get("name", "Personaje")),
+		"personality": "custom_" + id,
+		"voice_pitch": float(data.get("voice_pitch", 1.0)),
+		"adult": adult,
+		"identity": str(data.get("identity", "")) + ("" if adult else " Tu relación con él es solo de amistad."),
+		"appearance": str(data.get("appearance", "")) if not str(data.get("appearance", "")).is_empty() else DATA["mireya"]["appearance"],
+		"outfits": [{"id": "original", "label": "Original"}],
+		"custom": true,
+	}
+	if data.has("illustration"):
+		entry["illustration"] = folder + "/" + str(data["illustration"])
+		entry["rig"] = rig_from_json(data.get("rig", {}))
+	elif data.has("model"):
+		entry["model"] = folder + "/" + str(data["model"])
+	else:
+		# Sin modelo propio: usa la ilustración de Mireya.
+		entry["illustration"] = DATA["mireya"]["illustration"]
+		entry["rig"] = DATA["mireya"]["rig"]
+	register(id, entry)
+
+
+## Borra un personaje creado (sus archivos y su memoria).
+static func delete_custom(id: String) -> void:
+	for folder in [CUSTOM_DIR + "/" + id, data_dir(id)]:
+		var dir := DirAccess.open(folder)
+		if dir:
+			for file in dir.get_files():
+				dir.remove(file)
+			DirAccess.remove_absolute(folder)
+	extra.erase(id)
+
+
+## El rig tiene Vector2/Color/Vector4: en JSON van como listas.
+static func rig_to_json(rig: Dictionary) -> Dictionary:
+	var out := {}
+	for key in rig:
+		out[key] = _to_json(rig[key])
+	return out
+
+
+static func _to_json(value: Variant) -> Variant:
+	match typeof(value):
+		TYPE_VECTOR2:
+			return [value.x, value.y]
+		TYPE_VECTOR4:
+			return [value.x, value.y, value.z, value.w]
+		TYPE_COLOR:
+			return {"color": value.to_html()}
+		TYPE_ARRAY:
+			return (value as Array).map(_to_json)
+	return value
+
+
+static func rig_from_json(data: Dictionary) -> Dictionary:
+	var out := {}
+	for key in data:
+		out[key] = _from_json(data[key])
+	return out
+
+
+static func _from_json(value: Variant) -> Variant:
+	if value is Dictionary and value.has("color"):
+		return Color(str(value["color"]))
+	if value is Array:
+		var list := value as Array
+		if list.size() == 2 and (list[0] is float or list[0] is int) and (list[1] is float or list[1] is int):
+			return Vector2(list[0], list[1])
+		if list.size() == 4 and list.all(func(v): return v is float or v is int):
+			return Vector4(list[0], list[1], list[2], list[3])
+		return list.map(_from_json)
+	return value
+
+
 ## Carpeta donde se guardan los datos de un personaje.
 static func data_dir(id: String) -> String:
 	return "user://characters/%s" % id

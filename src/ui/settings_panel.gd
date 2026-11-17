@@ -4,12 +4,15 @@ extends PanelContainer
 
 signal closed
 signal memory_cleared
+signal create_character_requested
+signal delete_character_requested
 
 var _provider: OptionButton
 var _api_key: LineEdit
 var _gemini_key: LineEdit
 var _model: OptionButton
 var _phone_actions: CheckButton
+var _delete_character: Button
 var _companion_name: LineEdit
 var _user_name: LineEdit
 var _personality: OptionButton
@@ -79,6 +82,15 @@ func _ready() -> void:
 		_character.add_item(Characters.fetch(id)["label"])
 	_character.item_selected.connect(_on_character_selected)
 	form.add_child(_character)
+	var create := Button.new()
+	create.text = "Crear personaje nuevo (o importar .micia)"
+	create.pressed.connect(func(): create_character_requested.emit())
+	form.add_child(create)
+	_delete_character = Button.new()
+	_delete_character.text = "Borrar este personaje creado"
+	UIStyle.style_button(_delete_character, UIStyle.ButtonKind.FLAT)
+	_delete_character.pressed.connect(func(): delete_character_requested.emit())
+	form.add_child(_delete_character)
 
 	_add_label(form, "Nombre de ella")
 	_companion_name = LineEdit.new()
@@ -202,7 +214,11 @@ func load_values() -> void:
 	_personality.select(maxi(0, ids.find(str(Settings.get_value("personality")))))
 	_custom_prompt.text = str(Settings.get_value("custom_prompt"))
 	_appearance.text = str(Settings.get_value("appearance"))
+	_character.clear()
+	for id in Characters.ids():
+		_character.add_item(Characters.fetch(id)["label"])
 	_character.select(maxi(0, Characters.ids().find(str(Settings.get_value("character")))))
+	_delete_character.visible = Characters.fetch(str(Settings.get_value("character"))).get("custom", false)
 	_adult.button_pressed = bool(Settings.get_value("adult_content"))
 	_cf_account.text = str(Settings.get_value("cloudflare_account_id"))
 	_cf_token.text = str(Settings.get_value("cloudflare_api_token"))

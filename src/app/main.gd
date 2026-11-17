@@ -53,6 +53,7 @@ var _gift_panel: GiftPanel
 var _image_viewer: ImageViewer
 var _image_request_panel: ImageRequestPanel
 var _key_panel: KeyPanel
+var _creator: CharacterCreator
 var _game_panel: GamePanel
 var _outfit_panel: OutfitPanel
 var _location_panel: LocationPanel
@@ -383,6 +384,9 @@ func _build_overlay() -> void:
 	_key_panel = KeyPanel.new()
 	_key_panel.visible = false
 	center.add_child(_key_panel)
+	_creator = CharacterCreator.new()
+	_creator.visible = false
+	center.add_child(_creator)
 
 	_image_viewer = ImageViewer.new()
 	_image_viewer.visible = false
@@ -568,6 +572,14 @@ func _connect_signals() -> void:
 	_block_card.gift_requested.connect(_open_gifts)
 
 	_settings_panel.closed.connect(_close_overlay)
+	_settings_panel.create_character_requested.connect(_open_creator)
+	_settings_panel.delete_character_requested.connect(_delete_current_character)
+	_creator.closed.connect(_close_overlay)
+	_creator.created.connect(func(id: String):
+		_close_overlay()
+		Settings.set_value("character", id)
+		Settings.save()
+		_chat.add_message(ChatView.Sender.EVENT, "Ahora estás con %s" % Settings.get_value("companion_name")))
 	_gift_panel.closed.connect(_close_overlay)
 	_gift_panel.gift_chosen.connect(_on_gift_chosen)
 
@@ -694,6 +706,26 @@ func _on_brain_failed(message: String) -> void:
 	_chat.add_message(ChatView.Sender.SYSTEM, message)
 	if not Settings.has_api_key() or message.begins_with("API key inválida"):
 		open_key_panel()
+
+
+func _open_creator() -> void:
+	_hide_panels()
+	var view := get_viewport_rect().size
+	_creator.custom_minimum_size = Vector2(minf(view.x - 30.0, 440.0), minf(view.y - 60.0, 700.0))
+	_creator.reset()
+	_creator.visible = true
+	_overlay.visible = true
+
+
+func _delete_current_character() -> void:
+	var id := str(Settings.get_value("character"))
+	if not Characters.fetch(id).get("custom", false):
+		return
+	_close_overlay()
+	Characters.delete_custom(id)
+	Settings.set_value("character", Characters.DEFAULT_ID)
+	Settings.save()
+	_chat.add_message(ChatView.Sender.EVENT, "Personaje borrado")
 
 
 ## Ventana para pegar la clave del cerebro elegido.
@@ -990,6 +1022,7 @@ func _hide_panels() -> void:
 	_image_viewer.visible = false
 	_image_request_panel.visible = false
 	_key_panel.visible = false
+	_creator.visible = false
 	_game_panel.visible = false
 	_outfit_panel.visible = false
 	_location_panel.visible = false
