@@ -271,12 +271,48 @@ def reinterpolate(values, is_set, axis_points, default):
     return values
 
 
+# --- Subdivisión: más vértices para que todo se doble con suavidad ---------
+
+def subdivide(verts, uvs, indices):
+    """Parte cada triángulo en 4. Devuelve los nuevos arrays y, para cada
+    vértice nuevo, de qué dos vértices sale (para repartir deformaciones)."""
+    verts = [list(v) for v in verts]
+    uvs = [list(u) for u in uvs]
+    parents = []
+    midpoint = {}
+
+    def middle(a, b):
+        key = (min(a, b), max(a, b))
+        if key not in midpoint:
+            midpoint[key] = len(verts)
+            verts.append([(verts[a][0] + verts[b][0]) / 2, (verts[a][1] + verts[b][1]) / 2])
+            uvs.append([(uvs[a][0] + uvs[b][0]) / 2, (uvs[a][1] + uvs[b][1]) / 2])
+            parents.append(key)
+        return midpoint[key]
+
+    out = []
+    for i in range(0, len(indices) - 2, 3):
+        a, b, c = indices[i], indices[i + 1], indices[i + 2]
+        ab, bc, ca = middle(a, b), middle(b, c), middle(c, a)
+        out += [a, ab, ca, ab, b, bc, ca, bc, c, ab, bc, ca]
+    return verts, uvs, out, parents
+
+
+def extend_deform(values, parents):
+    """Deformación de los vértices nuevos = promedio de sus dos padres."""
+    if not parents:
+        return values
+    extra = np.array([(values[a] + values[b]) / 2 for a, b in parents], dtype=np.float32)
+    return np.concatenate([values, extra.reshape(-1, 2)], axis=0)
+
+
 # --- Conversión ---------------------------------------------------------------
 
-def bake(source, target, scale, quality):
+def bake(source, target, scale, quality, subdivisions=1):
     puppet, textures = read_inx(source)
     nodes = []
     index_of = {}
+    subdivided = {}
 
     def walk(node, parent, composite):
         kind = node["type"]
@@ -301,7 +337,16 @@ def bake(source, target, scale, quality):
         if kind == "Part":
             mesh = node["mesh"]
             origin = mesh.get("origin", [0.0, 0.0])
-            verts = np.array(mesh["verts"], dtype=np.float32).reshape(-1, 2) - np.array(origin, dtype=np.float32)
+            base = np.array(mesh["verts"], dtype=np.float32).reshape(-1, 2) - np.array(origin, dtype=np.float32)
+            uv_list = np.array(mesh["uvs"], dtype=np.float32).reshape(-1, 2).tolist()
+            index_list = list(mesh["indices"])
+            parent_chain = []
+            vert_list = base.tolist()
+            for _ in range(subdivisions):
+                vert_list, uv_list, index_list, parents = subdivide(vert_list, uv_list, index_list)
+                parent_chain.append(parents)
+            subdivided[len(nodes) - 1] = parent_chain
+            verts = np.array(vert_list, dtype=np.float32)
             entry.update({
                 "tex": node["textures"][0],
                 "blend": node.get("blend_mode", "Normal"),
@@ -309,8 +354,8 @@ def bake(source, target, scale, quality):
                 "mask_threshold": node.get("mask_threshold", 0.5),
                 "masks": [{"uuid": m["source"], "mode": m["mode"]} for m in (node.get("masks") or [])],
                 "verts": [round(float(v), 3) for v in verts.reshape(-1)],
-                "uvs": [round(float(v), 5) for v in mesh["uvs"]],
-                "indices": mesh["indices"],
+                "uvs": [round(float(v), 5) for v in np.array(uv_list).reshape(-1)],
+                "indices": index_list,
             })
         elif kind == "Composite":
             entry.update({"blend": node.get("blend_mode", "Normal"), "opacity": node.get("opacity", 1.0)})
@@ -374,11 +419,19 @@ def bake(source, target, scale, quality):
             target_name = binding["param_name"]
             x_count, y_count = len(axes[0]), len(axes[1])
             if target_name == "deform":
+                chain = subdivided.get(node_index, [])
                 vertex_count = len(nodes[node_index]["verts"]) // 2
-                zero = np.zeros((vertex_count, 2), dtype=np.float32)
+                original_count = vertex_count
+                for parents in reversed(chain):
+                    original_count -= len(parents)
+                zero = np.zeros((original_count, 2), dtype=np.float32)
                 grid = [[np.array(binding["values"][x][y], dtype=np.float32).reshape(-1, 2) if binding["isSet"][x][y] else zero.copy()
                          for y in range(y_count)] for x in range(x_count)]
                 grid = reinterpolate(grid, binding["isSet"], axes, zero)
+                for x in range(x_count):
+                    for y in range(y_count):
+                        for parents in chain:
+                            grid[x][y] = extend_deform(grid[x][y], parents)
                 offsets = []
                 for x in range(x_count):
                     column = []
@@ -437,5 +490,6 @@ if __name__ == "__main__":
     parser.add_argument("target")
     parser.add_argument("--scale", type=float, default=0.5, help="reducción de las texturas (0.5 = mitad)")
     parser.add_argument("--quality", type=int, default=92, help="calidad WebP (1-100)")
+    parser.add_argument("--subdivide", type=int, default=2, help="veces que se subdivide cada malla (x4 vértices cada vez)")
     arguments = parser.parse_args()
-    bake(arguments.source, arguments.target, arguments.scale, arguments.quality)
+    bake(arguments.source, arguments.target, arguments.scale, arguments.quality, arguments.subdivide)

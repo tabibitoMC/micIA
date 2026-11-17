@@ -167,6 +167,10 @@ var pivot := Vector2.ZERO
 var meta := {}
 ## Movimiento del mundo que deben notar las físicas (metros).
 var physics_enabled := true
+## Multiplica cuánto mueven las físicas sus parámetros (más = más rebote).
+var physics_gain := 1.0
+## Multiplica la amortiguación (menos = oscila más tiempo).
+var damping_scale := 1.0
 
 var _nodes: Array[PNode] = []
 var _params: Array[PParam] = []
@@ -604,6 +608,14 @@ func update(delta: float) -> void:
 		_update_physics(delta)
 
 
+## Empuja la física que mueve un parámetro (p. ej. sacudir una oreja).
+## impulse va en píxeles por segundo del modelo.
+func nudge_physics(param_name: String, impulse: Vector2) -> void:
+	for physics in _physics:
+		if _params[physics.param].name == param_name:
+			physics.velocity += impulse
+
+
 ## Deja las físicas quietas en su sitio (tras teletransportar el modelo).
 func reset_physics() -> void:
 	for physics in _physics:
@@ -815,8 +827,8 @@ func _update_physics(delta: float) -> void:
 		out.y = -out.y
 		var param := _params[physics.param]
 		param.value = Vector2(
-			clampf(out.x * physics.output_scale.x, param.low.x, param.high.x),
-			clampf(out.y * physics.output_scale.y, param.low.y, param.high.y))
+			clampf(out.x * physics.output_scale.x * physics_gain, param.low.x, param.high.x),
+			clampf(out.y * physics.output_scale.y * physics_gain, param.low.y, param.high.y))
 
 
 func _step_spring(physics: PPhysics, anchor: Vector2, g: float, h: float) -> void:
@@ -835,8 +847,8 @@ func _step_spring(physics: PPhysics, anchor: Vector2, g: float, h: float) -> voi
 	var force := Vector2(0, g) - direction * (distance - rest_length) * spring_k
 	var v := physics.velocity
 	var rotated := Vector2(v.x * direction.y + v.y * direction.x, v.y * direction.y - v.x * direction.x)
-	var damp_x := -rotated.x * physics.angle_damping * crit_angle
-	var damp_y := -rotated.y * physics.length_damping * crit_length
+	var damp_x := -rotated.x * physics.angle_damping * damping_scale * crit_angle
+	var damp_y := -rotated.y * physics.length_damping * damping_scale * crit_length
 	force += Vector2(damp_x * direction.y - damp_y * direction.x, damp_y * direction.y + damp_x * direction.x)
 	physics.velocity += force * h
 	physics.bob += physics.velocity * h
@@ -846,7 +858,7 @@ func _step_pendulum(physics: PPhysics, anchor: Vector2, g: float, h: float) -> v
 	var offset := physics.bob - anchor
 	var angle := atan2(-offset.x, offset.y)
 	var ratio := g / physics.length
-	var acceleration := -ratio * sin(angle) - physics.velocity.x * physics.angle_damping * 2.0 * sqrt(ratio)
+	var acceleration := -ratio * sin(angle) - physics.velocity.x * physics.angle_damping * damping_scale * 2.0 * sqrt(ratio)
 	physics.velocity.x += acceleration * h
 	angle += physics.velocity.x * h
 	physics.bob = anchor + Vector2(-sin(angle), cos(angle)) * physics.length

@@ -35,6 +35,16 @@ const ARM_R_PIVOT := Vector2(203, -1117)
 ## Codos (a medio camino entre hombro y muñeca) y manos.
 const ARM_L_ELBOW := Vector2(115, -486)
 const ARM_R_ELBOW := Vector2(-64, -433)
+## Cola: base (cadera), curva del medio y física propia con resorte.
+const TAIL := "Tail"
+const TAIL_BASE := Vector2(-920, -830)
+const TAIL_MIDDLE := Vector2(-145, 570)
+## Emoción -> [amplitud del meneo, velocidad, caída (positivo = baja)]
+const TAIL_MOOD := {
+	"feliz": [0.16, 3.2, -0.04], "coqueta": [0.12, 2.0, -0.05], "sorprendida": [0.04, 1.0, -0.12],
+	"enojada": [0.05, 4.5, -0.1], "triste": [0.03, 0.7, 0.14], "avergonzada": [0.07, 2.4, 0.04],
+	"pensativa": [0.05, 0.9, 0.0], "neutral": [0.07, 1.3, 0.0],
+}
 const HAND_L := "Hand:: Left"
 const HAND_R := "Hand:: Right"
 ## Poses de brazo: [hombro, codo] en radianes (positivo = hacia el cuerpo).
@@ -135,6 +145,11 @@ var _idle_tween: Tween
 var _eye_target := 0.0
 var _eye := 0.0
 var _eye_timer := 1.0
+var _tail_angle := 0.0
+var _tail_speed := 0.0
+var _tail_mood: Array = TAIL_MOOD["neutral"]
+var _last_x := 0.0
+var _ear_timer := 3.0
 var _voice_level := -1.0
 var _voice_level_time := 0.0
 
@@ -143,12 +158,20 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	_build_viewport()
 	var path := model_path if model_path.ends_with(".puppet") else DEFAULT_MODEL_PATH
+	# Calidad normal: versión con menos vértices (nombre_normal.puppet).
+	if not bool(Settings.get_value("avatar_high_quality")):
+		var lighter := path.trim_suffix(".puppet") + "_normal.puppet"
+		if FileAccess.file_exists(lighter):
+			path = lighter
 	_puppet = Puppet.new()
 	_viewport.add_child(_puppet)
 	_ready_ok = _puppet.load_file(path)
 	if not _ready_ok:
 		return
 	_puppet.fit_height(MODEL_HEIGHT)
+	# Física más suelta y con más rebote en pelo, orejas, falda y mangas.
+	_puppet.physics_gain = 1.7
+	_puppet.damping_scale = 0.6
 	_add_blush()
 	_add_tears()
 	_puppet.update(0.0)
@@ -160,6 +183,9 @@ func is_ready() -> bool:
 
 func set_emotion(emotion: String) -> void:
 	_goal = EMOTIONS.get(emotion, EMOTIONS["neutral"])
+	_tail_mood = TAIL_MOOD.get(emotion, TAIL_MOOD["neutral"])
+	# Un cambio de emoción sacude un poco las orejas.
+	_twitch_ears(1.0)
 
 
 func set_talking(talking: bool) -> void:
@@ -596,7 +622,8 @@ func _process(delta: float) -> void:
 	p.set_param(P_HEAD_ROLL, _roll + act_roll + idle_roll + sin(_time * 0.9) * 0.05 * calm + act_shake * 0.08)
 	p.set_param(P_BODY, act_body.x + act_lean + idle_lean + sway.x * 0.5 + _walk * 0.6, act_body.y + sway.y * 0.4)
 	p.set_param(P_BODY_ROLL, sin(_time * 9.0) * 0.25 * absf(_walk) + act_shake * 0.15 + act_lean * 0.15)
-	p.set_param(P_BODY_X, act_shake * 0.2)
+	# Caderas que se mecen suave (más al caminar).
+	p.set_param(P_BODY_X, act_shake * 0.2 + sin(_time * 0.6) * 0.07 * calm + sin(_time * 9.0) * 0.12 * absf(_walk))
 	p.set_param(P_MOUTH, _mouth.x, _mouth.y)
 	p.set_param(P_BLINK_L, eyes)
 	p.set_param(P_BLINK_R, eyes)
@@ -605,6 +632,8 @@ func _process(delta: float) -> void:
 	p.set_param(P_EYE_R, eye)
 	p.set_param(P_BREATH, breath)
 	_apply_arms(calm)
+	_update_tail(delta)
+	_update_ears(delta)
 	p.set_node_offset("Eyebrow:: Left", Vector2(0, _brow_y), -_brow)
 	p.set_node_offset("Eyebrow:: Right", Vector2(0, _brow_y), _brow)
 	p.set_node_opacity("blush", _blush)
@@ -648,6 +677,45 @@ func _bend_arm(arm: String, hand: String, pivot: Vector2, elbow: Vector2, pose: 
 	var wrist := _puppet.node_base_translation(hand)
 	var moved := Puppet.bent_point(wrist, pivot, elbow, upper, fore)
 	_puppet.set_node_offset(hand, moved - wrist, upper + fore)
+
+
+## Cola con resorte: menea según la emoción y se queda atrás cuando ella se
+## mueve, salta o gira (luego rebota).
+func _update_tail(delta: float) -> void:
+	if _in_bed or delta <= 0.0:
+		return
+	var amplitude: float = _tail_mood[0]
+	var speed: float = _tail_mood[1]
+	var droop: float = _tail_mood[2]
+	if _sleeping:
+		amplitude = 0.01
+	var target := droop + sin(_time * speed) * amplitude + sin(_time * speed * 0.37) * amplitude * 0.4
+	# Inercia: si el cuerpo se mueve, la cola se atrasa.
+	var x := _puppet.position.x
+	var body_speed := (x - _last_x) / delta
+	_last_x = x
+	var force := (target - _tail_angle) * 60.0 - _tail_speed * 7.0 - body_speed * 6.0 - act_jump * 40.0
+	_tail_speed += force * delta
+	_tail_angle = clampf(_tail_angle + _tail_speed * delta, -0.6, 0.6)
+	_puppet.set_node_bend(TAIL, TAIL_BASE, TAIL_MIDDLE, _tail_angle * 0.45, _tail_angle * 0.9, 300.0)
+
+
+## Las orejas se sacuden solas de vez en cuando.
+func _update_ears(delta: float) -> void:
+	_ear_timer -= delta
+	if _ear_timer <= 0.0:
+		_ear_timer = randf_range(3.0, 8.0)
+		_twitch_ears(randf_range(0.6, 1.2))
+
+
+func _twitch_ears(strength: float) -> void:
+	if not _ready_ok or _sleeping:
+		return
+	var which := randi() % 3
+	if which != 1:
+		_puppet.nudge_physics("Ear:: Left:: Physics", Vector2(randf_range(-1, 1), -1.0) * 900.0 * strength)
+	if which != 0:
+		_puppet.nudge_physics("Ear:: Right:: Physics", Vector2(randf_range(-1, 1), -1.0) * 900.0 * strength)
 
 
 ## Pequeños gestos al azar: así nunca se queda congelada.

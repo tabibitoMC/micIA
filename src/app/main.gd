@@ -316,6 +316,7 @@ func _switch_character(character: String) -> void:
 
 var _avatar_model_path := ""
 var _last_action := ""
+var _avatar_quality := true
 
 
 ## Crea el avatar 3D o 2D según Ajustes y el personaje. Si el 3D falla, usa el 2D.
@@ -323,10 +324,12 @@ func _rebuild_avatar() -> void:
 	var want_3d := true
 	var outfit := Settings.current_outfit()
 	var model_path := str(outfit.get("model", Settings.character()["model"]))
-	if _avatar != null and want_3d == _avatar_is_3d and (not want_3d or model_path == _avatar_model_path):
+	var quality := bool(Settings.get_value("avatar_high_quality"))
+	if _avatar != null and want_3d == _avatar_is_3d and (not want_3d or model_path == _avatar_model_path) and quality == _avatar_quality:
 		_avatar.apply_tint(outfit.get("cloth", Color.WHITE), outfit.get("hair", Color.WHITE))
 		return
 	_avatar_model_path = model_path
+	_avatar_quality = quality
 	if _avatar != null:
 		_avatar.queue_free()
 		_avatar = null

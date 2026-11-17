@@ -26,6 +26,8 @@ const DEFAULTS := {
 	"location": "dormitorio",
 	## Conjunto elegido por personaje: {"vita": "rosa", ...}
 	"outfits": {},
+	## Avatar con muchos más vértices (más suave). Si va lento, desactivarlo.
+	"avatar_high_quality": true,
 	"voice_enabled": true,
 	"voice_rate": 1.0,
 	"voice_pitch": 1.2,

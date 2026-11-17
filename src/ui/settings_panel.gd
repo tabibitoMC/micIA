@@ -19,6 +19,7 @@ var _cf_token: LineEdit
 var _horde_key: LineEdit
 var _room_theme: OptionButton
 var _voice_enabled: CheckButton
+var _high_quality: CheckButton
 var _avatar_3d: CheckButton
 var _voice_rate: HSlider
 var _voice_pitch: HSlider
@@ -103,6 +104,11 @@ func _ready() -> void:
 	_avatar_3d.text = "Avatar 3D (apágalo si va lento)"
 	form.add_child(_avatar_3d)
 
+	_high_quality = CheckButton.new()
+	_high_quality.text = "Avatar en alta calidad (más vértices; apágalo si va lento)"
+	_high_quality.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	form.add_child(_high_quality)
+
 	_voice_enabled = CheckButton.new()
 	_voice_enabled.text = "Voz activada"
 	form.add_child(_voice_enabled)
@@ -177,6 +183,7 @@ func load_values() -> void:
 	# Ya no hay avatar 3D: la opción se oculta.
 	_avatar_3d.visible = false
 	_voice_enabled.button_pressed = bool(Settings.get_value("voice_enabled"))
+	_high_quality.button_pressed = bool(Settings.get_value("avatar_high_quality"))
 	_voice_rate.value = float(Settings.get_value("voice_rate"))
 	_voice_pitch.value = float(Settings.get_value("voice_pitch"))
 	_ui_scale.value = float(Settings.get_value("ui_scale"))
@@ -200,6 +207,7 @@ func _on_save_pressed() -> void:
 	Settings.set_value("horde_api_key", _horde_key.text.strip_edges())
 	Settings.set_value("avatar_3d", _avatar_3d.button_pressed)
 	Settings.set_value("voice_enabled", _voice_enabled.button_pressed)
+	Settings.set_value("avatar_high_quality", _high_quality.button_pressed)
 	Settings.set_value("voice_rate", _voice_rate.value)
 	Settings.set_value("voice_pitch", _voice_pitch.value)
 	Settings.set_value("ui_scale", _ui_scale.value)
