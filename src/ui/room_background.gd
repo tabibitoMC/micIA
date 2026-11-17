@@ -188,7 +188,8 @@ func _draw() -> void:
 	var h := size.y
 	var texture := current_image()
 	if texture != null:
-		draw_texture_rect(texture, _cover_rect(texture), false)
+		# Un toque rosado, como en el concepto visual.
+		draw_texture_rect(texture, _cover_rect(texture), false, Color(1.0, 0.93, 0.96) if not sleep_view else Color.WHITE)
 		_draw_vignette(w, h)
 		return
 	if sleep_view:

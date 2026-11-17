@@ -1,7 +1,7 @@
 class_name SideButton
 extends VBoxContainer
-## Botón lateral: un cuadrito redondeado con un ícono (Lucide) y una etiqueta
-## tipo píldora debajo.
+## Botón del panel lateral: ícono rosa arriba y el nombre debajo, todo dentro
+## de un mismo botón (toda el área es tocable).
 
 signal pressed
 
@@ -18,8 +18,8 @@ const ICON_NAMES := {
 	Icon.PLACE: "map-pin",
 }
 
-const TILE_SIZE := 54.0
-const ICON_SIZE := 30
+const TILE_SIZE := Vector2(70, 58)
+const ICON_SIZE := 28
 
 var icon_name := "heart"
 var label_text := ""
@@ -36,41 +36,29 @@ func _init(p_icon: Variant = Icon.HEART, p_label := "") -> void:
 
 func _ready() -> void:
 	alignment = BoxContainer.ALIGNMENT_CENTER
-	add_theme_constant_override("separation", 2)
-
 	_tile = Button.new()
-	_tile.custom_minimum_size = Vector2(TILE_SIZE, TILE_SIZE)
+	_tile.text = label_text
+	_tile.custom_minimum_size = TILE_SIZE
 	_tile.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	_tile.icon = Icons.texture(icon_name, UIStyle.PINK_DEEP, ICON_SIZE * 3)
-	_tile.expand_icon = true
+	_tile.icon = Icons.texture(icon_name, Color("e0628f"), ICON_SIZE * 3, 2.1)
+	_tile.expand_icon = false
 	_tile.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_tile.vertical_icon_alignment = VERTICAL_ALIGNMENT_CENTER
+	_tile.vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP
 	_tile.add_theme_constant_override("icon_max_width", ICON_SIZE)
-	var tile_style := UIStyle.rounded(UIStyle.PINK_SOFT, 16, 12)
-	tile_style.border_color = UIStyle.WHITE
-	tile_style.set_border_width_all(3)
-	tile_style.border_width_bottom = 5
-	tile_style.shadow_color = UIStyle.SHADOW
-	tile_style.shadow_size = 5
-	tile_style.shadow_offset = Vector2(0, 3)
-	for state in ["normal", "hover", "focus"]:
-		_tile.add_theme_stylebox_override(state, tile_style)
-	var pressed_style := tile_style.duplicate() as StyleBoxFlat
-	pressed_style.bg_color = UIStyle.PINK_BORDER
-	pressed_style.border_width_bottom = 3
-	pressed_style.shadow_size = 2
-	_tile.add_theme_stylebox_override("pressed", pressed_style)
+	_tile.add_theme_constant_override("h_separation", 0)
+	_tile.add_theme_font_override("font", UIStyle.font(700))
+	_tile.add_theme_font_size_override("font_size", 13)
+	for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]:
+		_tile.add_theme_color_override(c, UIStyle.PLUM)
+	_tile.add_theme_color_override("font_disabled_color", Color(UIStyle.PLUM, 0.5))
+	var empty := StyleBoxEmpty.new()
+	for state in ["normal", "focus", "disabled"]:
+		_tile.add_theme_stylebox_override(state, empty)
+	_tile.add_theme_stylebox_override("hover", UIStyle.rounded(Color(1, 0.89, 0.93, 0.6), 16, 4))
+	_tile.add_theme_stylebox_override("pressed", UIStyle.rounded(Color("fbd0df"), 16, 4))
 	_tile.pressed.connect(func(): pressed.emit())
 	_tile.disabled = _disabled
 	add_child(_tile)
-
-	var label := Label.new()
-	label.text = label_text
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	label.add_theme_font_size_override("font_size", 12)
-	label.add_theme_stylebox_override("normal", UIStyle.pill(UIStyle.WHITE, UIStyle.PINK_BORDER, 8, 1, 1))
-	label.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	add_child(label)
 
 
 ## Pequeño salto para llamar la atención (cuando ella lo señala).

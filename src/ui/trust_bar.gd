@@ -1,7 +1,8 @@
 class_name TrustBar
 extends PanelContainer
-## Barra superior tipo termómetro: nivel de confianza, nombre del nivel y el
-## estado temporal actual (Feliz, Enojada, Lasciva...).
+## Barra de confianza a lo ancho: ícono de apretón de manos, "Confianza", una
+## pista con perilla redonda y el nombre del nivel (más el estado temporal:
+## Feliz, Enojada...).
 
 const STATE_COLORS := {
 	"feliz": Color("ffc857"),
@@ -18,24 +19,33 @@ var _state_chip: Label
 
 
 func _ready() -> void:
-	add_theme_stylebox_override("panel", UIStyle.pill(UIStyle.WHITE, UIStyle.PINK_BORDER, 14, 6))
+	add_theme_stylebox_override("panel", UIStyle.soft_pill(Color(1, 1, 1, 0.94), Color("f6b6cb"), 999, 14, 7))
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 8)
 	add_child(row)
 
+	var icon := TextureRect.new()
+	icon.texture = Icons.texture("handshake", Color("e0628f"), 72, 2.2)
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.custom_minimum_size = Vector2(24, 24)
+	row.add_child(icon)
+
 	var title := Label.new()
 	title.text = "Confianza"
-	title.add_theme_font_size_override("font_size", UIStyle.FONT_SIZE_SMALL)
+	title.add_theme_font_override("font", UIStyle.font(800))
+	title.add_theme_font_size_override("font_size", 16)
 	row.add_child(title)
 
 	_thermo = Control.new()
 	_thermo.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_thermo.custom_minimum_size = Vector2(80, 18)
+	_thermo.custom_minimum_size = Vector2(70, 20)
 	_thermo.draw.connect(_draw_thermometer)
 	row.add_child(_thermo)
 
 	_level_label = Label.new()
-	_level_label.add_theme_font_size_override("font_size", UIStyle.FONT_SIZE_SMALL)
+	_level_label.add_theme_font_override("font", UIStyle.font(700))
+	_level_label.add_theme_font_size_override("font_size", 15)
 	row.add_child(_level_label)
 
 	_state_chip = Label.new()
@@ -59,34 +69,29 @@ func refresh() -> void:
 	_thermo.queue_redraw()
 
 
-## Tubo redondeado con degradado frío -> cálido y un bulbo a la izquierda.
+## Pista redondeada con relleno degradado y una perilla redonda en el valor.
 func _draw_thermometer() -> void:
 	var s := _thermo.size
-	var bulb_r := s.y * 0.5
-	var tube := Rect2(bulb_r, s.y * 0.25, s.x - bulb_r, s.y * 0.5)
-	var bg := UIStyle.rounded(UIStyle.PINK_SOFT, int(tube.size.y / 2), 0)
-	_thermo.draw_style_box(bg, tube)
-
+	var knob_r := s.y * 0.42
+	var track := Rect2(knob_r, s.y * 0.32, s.x - knob_r * 2.0, s.y * 0.36)
+	_thermo.draw_style_box(UIStyle.rounded(Color("fbe3ee"), int(track.size.y / 2.0), 0), track)
 	var t := clampf(Relationship.trust / 100.0, 0.0, 1.0)
-	var fill_end := tube.position.x + tube.size.x * t
+	var knob_x := track.position.x + track.size.x * t
+	# Relleno: celeste -> rosa -> fucsia, por tramos.
 	var steps := 24
-	var cold := Color("8ec5ff")
+	var cold := Color("a9b8f5")
 	var mid := Color("f48fb1")
 	var hot := Color("e0458f")
 	for i in steps:
-		var x0 := tube.position.x + tube.size.x * i / steps
-		var x1 := tube.position.x + tube.size.x * (i + 1) / steps
-		if x0 >= fill_end:
+		var x0 := track.position.x + track.size.x * i / steps
+		var x1 := track.position.x + track.size.x * (i + 1) / steps
+		if x0 >= knob_x:
 			break
 		var k := float(i) / steps
 		var color := cold.lerp(mid, k * 2.0) if k < 0.5 else mid.lerp(hot, (k - 0.5) * 2.0)
-		_thermo.draw_rect(Rect2(x0, tube.position.y + 2, minf(x1, fill_end) - x0, tube.size.y - 4), color)
-	# Bulbo
-	var bulb_color := cold.lerp(hot, t)
-	_thermo.draw_circle(Vector2(bulb_r, s.y / 2), bulb_r, UIStyle.WHITE)
-	_thermo.draw_circle(Vector2(bulb_r, s.y / 2), bulb_r - 2.5, bulb_color)
-	# Marcas de los niveles
-	for level in Relationship.TRUST_LEVELS:
-		var x := tube.position.x + tube.size.x * float(level[0]) / 100.0
-		if x > tube.position.x + 2:
-			_thermo.draw_line(Vector2(x, tube.position.y), Vector2(x, tube.end.y), Color(1, 1, 1, 0.8), 1.5)
+		_thermo.draw_rect(Rect2(x0, track.position.y + 1, minf(x1, knob_x) - x0, track.size.y - 2), color)
+	# Perilla
+	var center := Vector2(knob_x, s.y / 2.0)
+	_thermo.draw_circle(center + Vector2(0, 1.5), knob_r, Color(0.6, 0.3, 0.5, 0.18))
+	_thermo.draw_circle(center, knob_r, Color.WHITE)
+	_thermo.draw_circle(center, knob_r - 2.5, cold.lerp(hot, t))

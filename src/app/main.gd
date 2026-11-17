@@ -26,11 +26,14 @@ var _interface_actions: InterfaceActions
 var _touch: TouchInteractions
 var _current_character := ""
 var _side_column: VBoxContainer
-var _side_scroll: ScrollContainer
+var _side_panel: SidePanel
+var _side_layer: MarginContainer
+var _trust_bar: TrustBar
 var _mod_panel: Control
 var _chat: ChatView
 var _name_pill: MoodBar
 var _status_label: Label
+var _placeholder: RichTextLabel
 var _input_row: Control
 var _input: LineEdit
 var _send_button: Button
@@ -94,6 +97,8 @@ func _build_layers() -> void:
 	_room.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_room.theme_id = str(Settings.get_value("room_theme"))
 	add_child(_room)
+	# Pétalos de sakura que caen despacio sobre el fondo (detrás de ella).
+	add_child(PetalLayer.new())
 
 	_avatar_layer = Control.new()
 	_avatar_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -113,7 +118,8 @@ func _build_layers() -> void:
 	margin.add_child(column)
 
 	column.add_child(_build_header())
-	column.add_child(TrustBar.new())
+	_trust_bar = TrustBar.new()
+	column.add_child(_trust_bar)
 	# Los botones laterales flotan aparte: así nunca empujan el chat ni la
 	# caja de texto fuera de la pantalla (p. ej. en tablets apaisadas).
 	var side_layer := MarginContainer.new()
@@ -121,15 +127,12 @@ func _build_layers() -> void:
 	side_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	side_layer.add_theme_constant_override("margin_left", 12)
 	side_layer.add_theme_constant_override("margin_top", 96)
-	var side_scroll := ScrollContainer.new()
-	side_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	side_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
-	side_scroll.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	side_scroll.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-	side_scroll.mouse_filter = Control.MOUSE_FILTER_PASS
-	side_scroll.add_child(_build_side_buttons())
-	side_layer.add_child(side_scroll)
-	_side_scroll = side_scroll
+	_side_layer = side_layer
+	_side_panel = SidePanel.new()
+	_side_panel.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	_side_panel.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	side_layer.add_child(_side_panel)
+	_build_side_buttons()
 	add_child.call_deferred(side_layer)
 
 	var avatar_space := Control.new()
@@ -177,10 +180,7 @@ func _build_header() -> Control:
 
 
 func _build_side_buttons() -> Control:
-	var column := VBoxContainer.new()
-	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	column.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	column.add_theme_constant_override("separation", 10)
+	var column := _side_panel.list
 	_side_column = column
 
 	_gift_button = SideButton.new(SideButton.Icon.GIFT, "Regalo")
@@ -208,31 +208,98 @@ func _build_side_buttons() -> Control:
 	return column
 
 
+## Barra de escritura del concepto visual: una píldora rosa translúcida con
+## el botón de cámara (círculo blanco), el campo de texto y el botón de enviar
+## (círculo rosa).
 func _build_input_row() -> Control:
+	var bar := PanelContainer.new()
+	var bar_style := UIStyle.soft_pill(Color(1.0, 0.86, 0.91, 0.82), Color(1, 1, 1, 0.9), 999, 8, 7)
+	bar.add_theme_stylebox_override("panel", bar_style)
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 8)
-	_photo_button = Button.new()
-	_photo_button.text = ""
-	_photo_button.icon = Icons.texture("camera", UIStyle.PINK_DEEP, 48)
-	_photo_button.expand_icon = true
-	_photo_button.add_theme_constant_override("icon_max_width", 26)
+	bar.add_child(row)
+
+	_photo_button = _round_button("camera", Color.WHITE, Color("e0628f"), Color("f6b6cb"))
 	_photo_button.tooltip_text = "Mandarle una foto"
-	_photo_button.custom_minimum_size = Vector2(54, 50)
-	UIStyle.style_button(_photo_button, UIStyle.ButtonKind.SECONDARY)
 	row.add_child(_photo_button)
+
+	var field := Control.new()
+	field.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	field.custom_minimum_size = Vector2(0, 52)
+	row.add_child(field)
 	_input = LineEdit.new()
-	_input.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_input.custom_minimum_size = Vector2(0, 50)
-	row.add_child(_input)
-	_send_button = Button.new()
-	_send_button.text = ""
+	_input.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var input_style := UIStyle.rounded(Color(1, 1, 1, 0.97), 999, 0)
+	input_style.content_margin_left = 20
+	input_style.content_margin_right = 14
+	input_style.border_color = Color("fbd3e1")
+	input_style.set_border_width_all(2)
+	_input.add_theme_stylebox_override("normal", input_style)
+	var focus_style := input_style.duplicate() as StyleBoxFlat
+	focus_style.border_color = Color("ef7aa5")
+	_input.add_theme_stylebox_override("focus", focus_style)
+	_input.add_theme_font_override("font", UIStyle.font(600))
+	_input.add_theme_font_size_override("font_size", 18)
+	field.add_child(_input)
+	# "Escríbele a *Aka*..." con el nombre en cursiva (un LineEdit no puede
+	# mezclar estilos en su texto de ayuda, así que va encima).
+	_placeholder = RichTextLabel.new()
+	_placeholder.bbcode_enabled = true
+	_placeholder.fit_content = true
+	_placeholder.scroll_active = false
+	_placeholder.autowrap_mode = TextServer.AUTOWRAP_OFF
+	_placeholder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_placeholder.add_theme_font_override("normal_font", UIStyle.font(600))
+	_placeholder.add_theme_font_override("italics_font", UIStyle.font(600, true))
+	_placeholder.add_theme_font_size_override("normal_font_size", 18)
+	_placeholder.add_theme_font_size_override("italics_font_size", 18)
+	_placeholder.add_theme_color_override("default_color", UIStyle.PLUM_DIM)
+	_placeholder.set_anchors_preset(Control.PRESET_CENTER_LEFT)
+	_placeholder.position = Vector2(21, 0)
+	field.add_child(_placeholder)
+	field.resized.connect(func(): _placeholder.position = Vector2(21, (field.size.y - _placeholder.size.y) / 2.0))
+	_input.text_changed.connect(func(_t: String): _update_placeholder())
+
+	_send_button = _round_button("send", Color("ef7aa5"), Color.WHITE, Color("f7a8c4"))
 	_send_button.tooltip_text = "Enviar"
-	_send_button.icon = Icons.texture("send", UIStyle.WHITE, 48)
-	_send_button.expand_icon = true
-	_send_button.add_theme_constant_override("icon_max_width", 24)
-	_send_button.custom_minimum_size = Vector2(56, 50)
 	row.add_child(_send_button)
-	return row
+	return bar
+
+
+## Botón circular con ícono (cámara / enviar).
+func _round_button(icon: String, fill: Color, icon_color: Color, border: Color) -> Button:
+	var button := Button.new()
+	button.text = ""
+	button.icon = Icons.texture(icon, icon_color, 72, 2.2)
+	button.expand_icon = false
+	button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	button.add_theme_constant_override("icon_max_width", 26)
+	button.custom_minimum_size = Vector2(52, 52)
+	var style := UIStyle.rounded(fill, 999, 0)
+	style.border_color = border
+	style.set_border_width_all(2)
+	style.shadow_color = Color(0.85, 0.35, 0.55, 0.2)
+	style.shadow_size = 5
+	style.shadow_offset = Vector2(0, 2)
+	button.add_theme_stylebox_override("normal", style)
+	button.add_theme_stylebox_override("hover", style)
+	button.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+	var pressed := style.duplicate() as StyleBoxFlat
+	pressed.bg_color = fill.darkened(0.08)
+	pressed.shadow_size = 1
+	button.add_theme_stylebox_override("pressed", pressed)
+	var disabled := style.duplicate() as StyleBoxFlat
+	disabled.bg_color = fill.lerp(Color.WHITE, 0.45)
+	button.add_theme_stylebox_override("disabled", disabled)
+	return button
+
+
+## El texto de ayuda con el nombre de ella en cursiva, solo con el campo vacío.
+func _update_placeholder() -> void:
+	if _placeholder == null:
+		return
+	_placeholder.visible = _input.text.is_empty() and _input.editable
+	_placeholder.text = "Escríbele a [i]%s[/i]..." % Settings.get_value("companion_name")
 
 
 ## Fondo oscuro con una ventana centrada (Ajustes o Regalos).
@@ -426,6 +493,7 @@ func _on_send() -> void:
 	if text.is_empty() or Mood.blocked or _brain.is_thinking():
 		return
 	_input.clear()
+	_update_placeholder()
 	_chat.add_message(ChatView.Sender.USER, text)
 	if _avatar.is_sleeping():
 		_avatar.set_sleeping(false)
@@ -439,6 +507,7 @@ func _on_photo_chosen(image: Image) -> void:
 		return
 	var caption := _input.text.strip_edges()
 	_input.clear()
+	_update_placeholder()
 	var path := _brain.send_photo(image, caption)
 	_chat.add_image(ChatView.Sender.USER, path, caption)
 
@@ -591,7 +660,8 @@ func _refresh_input_state() -> void:
 	_send_button.disabled = thinking
 	_photo_button.disabled = thinking
 	_gift_button.set_disabled(thinking)
-	_input.placeholder_text = "Escríbele a %s..." % companion
+	_input.placeholder_text = ""
+	_update_placeholder()
 	if thinking:
 		_status_label.text = "%s está escribiendo..." % companion
 	elif drawing:
@@ -605,8 +675,18 @@ func _on_resized() -> void:
 	var view := get_viewport_rect().size
 	_chat.custom_minimum_size.y = view.y * CHAT_HEIGHT_RATIO * 0.75
 	# Los botones laterales no bajan más allá de donde empieza el chat.
-	if _side_scroll:
-		_side_scroll.custom_minimum_size.y = maxf(80.0, view.y * (1.0 - CHAT_HEIGHT_RATIO) - 130.0)
+	_place_side_panel.call_deferred()
+
+
+## El panel lateral empieza justo debajo de la barra de confianza y termina
+## antes del chat.
+func _place_side_panel() -> void:
+	if _side_panel == null or _side_layer == null or _trust_bar == null:
+		return
+	var top := _trust_bar.get_global_rect().end.y - get_global_rect().position.y + 10.0
+	_side_layer.add_theme_constant_override("margin_top", int(top))
+	var bottom := _chat.get_global_rect().position.y - get_global_rect().position.y - 10.0
+	_side_panel.set_list_height(clampf(bottom - top, 150.0, 6.0 * (SideButton.TILE_SIZE.y + 2.0) + 62.0))
 
 
 func _load_history_into_chat() -> void:

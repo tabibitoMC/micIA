@@ -21,11 +21,11 @@ const EVENT_TEXT := Color("c9677f")
 const ERROR_TEXT := Color("d1455b")
 const SHADOW := Color(0.35, 0.12, 0.25, 0.18)
 
-# Burbujas
-const COMPANION_BUBBLE := Color("ffe4ee")
-const COMPANION_BORDER := Color("e98aab")
-const USER_BUBBLE := Color("ffffff")
-const USER_BORDER := Color("f3a9c3")
+# Burbujas (concepto visual: blanco rosado con borde rosa y una sakura)
+const COMPANION_BUBBLE := Color(1.0, 0.965, 0.978, 0.97)
+const COMPANION_BORDER := Color("f2a0bf")
+const USER_BUBBLE := Color(1.0, 0.985, 0.99, 0.97)
+const USER_BORDER := Color("f6b6cb")
 
 const FONT_SIZE := 18
 const FONT_SIZE_SMALL := 14
@@ -33,10 +33,43 @@ const FONT_SIZE_TITLE := 24
 
 enum ButtonKind { PRIMARY, SECONDARY, CTA, FLAT }
 
+# Fuente redondeada Nunito (OFL, assets/fonts): normal, negrita y cursiva.
+const NUNITO := preload("res://assets/fonts/Nunito.ttf")
+const NUNITO_ITALIC := preload("res://assets/fonts/Nunito-Italic.ttf")
+static var _fonts := {}
+
+
+## weight: 400 normal, 700 negrita, 800 extra. italic: cursiva.
+static func font(weight := 600, italic := false) -> Font:
+	var key := "%d:%s" % [weight, italic]
+	if not _fonts.has(key):
+		var variation := FontVariation.new()
+		variation.base_font = NUNITO_ITALIC if italic else NUNITO
+		variation.variation_opentype = {TextServerManager.get_primary_interface().name_to_tag("wght"): weight}
+		_fonts[key] = variation
+	return _fonts[key]
+
+
+## Píldora del concepto visual: blanca casi opaca, borde rosa suave y sombra
+## difusa (sin canto duro).
+static func soft_pill(color := Color(1, 1, 1, 0.94), border := Color("f6b6cb"), radius := 999, padding_h := 12, padding_v := 6) -> StyleBoxFlat:
+	var box := rounded(color, radius, 0)
+	box.content_margin_left = padding_h
+	box.content_margin_right = padding_h
+	box.content_margin_top = padding_v
+	box.content_margin_bottom = padding_v
+	box.border_color = border
+	box.set_border_width_all(2)
+	box.shadow_color = Color(0.85, 0.35, 0.55, 0.16)
+	box.shadow_size = 8
+	box.shadow_offset = Vector2(0, 3)
+	return box
+
 
 static func make_theme() -> Theme:
 	var theme := Theme.new()
 	theme.default_font_size = FONT_SIZE
+	theme.default_font = font(600)
 	theme.set_color("font_color", "Label", PLUM)
 	theme.set_stylebox("panel", "PanelContainer", card(CREAM))
 	_apply_button_styles(theme, "Button", ButtonKind.PRIMARY)
@@ -138,20 +171,20 @@ static func card(color: Color, radius := 24, padding := 18) -> StyleBoxFlat:
 
 ## Burbuja de chat (con "colita" simulada en una esquina menos redondeada).
 static func bubble(color: Color, border: Color, tail_left: bool) -> StyleBoxFlat:
-	var box := rounded(color, 20, 0)
-	box.content_margin_left = 16
-	box.content_margin_right = 16
-	box.content_margin_top = 10
-	box.content_margin_bottom = 10
+	var box := rounded(color, 22, 0)
+	box.content_margin_left = 18
+	box.content_margin_right = 30
+	box.content_margin_top = 11
+	box.content_margin_bottom = 13
 	box.border_color = border
 	box.set_border_width_all(2)
 	if tail_left:
-		box.corner_radius_bottom_left = 4
+		box.corner_radius_top_left = 8
 	else:
-		box.corner_radius_bottom_right = 4
-	box.shadow_color = SHADOW
-	box.shadow_size = 4
-	box.shadow_offset = Vector2(0, 2)
+		box.corner_radius_top_right = 8
+	box.shadow_color = Color(0.85, 0.35, 0.55, 0.14)
+	box.shadow_size = 8
+	box.shadow_offset = Vector2(0, 3)
 	return box
 
 

@@ -129,7 +129,11 @@ func _bubble_row(text: String, color: Color, border: Color, align_right: bool) -
 	var label := Label.new()
 	label.text = text
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.add_theme_font_override("font", UIStyle.font(650))
+	label.add_theme_font_size_override("font_size", 17)
+	label.add_theme_color_override("font_color", UIStyle.PLUM)
 	bubble.add_child(label)
+	bubble.add_child(_sakura_corner())
 
 	if align_right:
 		row.add_child(spacer)
@@ -140,15 +144,33 @@ func _bubble_row(text: String, color: Color, border: Color, align_right: bool) -
 	return row
 
 
+## Sakura pequeña en la esquina inferior derecha de la burbuja.
+func _sakura_corner() -> Control:
+	var decor := Control.new()
+	decor.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var flower := Icons.texture("sakura", Color("f7a1c0"), 48)
+	decor.draw.connect(func():
+		var s := 15.0
+		# La caja de la burbuja tiene margen: se dibuja fuera del área del texto.
+		decor.draw_texture_rect(flower, Rect2(decor.size + Vector2(16.0 - s, 9.0 - s), Vector2(s, s)), false))
+	return decor
+
+
+## Evento o aviso: píldora centrada con destellos a los lados.
 func _note(text: String, color: Color) -> Control:
+	var center := CenterContainer.new()
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var label := Label.new()
-	label.text = text
-	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.text = "✦   %s   ✦" % text
+	label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.add_theme_color_override("font_color", color)
-	label.add_theme_font_size_override("font_size", UIStyle.FONT_SIZE_SMALL)
-	label.add_theme_stylebox_override("normal", UIStyle.rounded(Color(1, 1, 1, 0.8), 12, 4))
-	return label
+	label.add_theme_font_override("font", UIStyle.font(700))
+	label.add_theme_font_size_override("font_size", 15)
+	label.add_theme_stylebox_override("normal", UIStyle.soft_pill(Color(1, 1, 1, 0.94), Color("f6b6cb"), 999, 18, 5))
+	label.custom_minimum_size.x = 0
+	center.add_child(label)
+	return center
 
 
 func _scroll_to_bottom() -> void:
