@@ -38,9 +38,9 @@ func _ready() -> void:
 	_label(form, "¿Cómo te llamas?")
 	_name = _field(form, "Tu nombre", false)
 
-	_label(form, "API key de Mistral (obligatoria)")
-	_note(form, "Gratis en console.mistral.ai → API Keys")
-	_mistral = _field(form, "Pega aquí tu clave de Mistral", true)
+	_label(form, "API key de Groq (obligatoria)")
+	_note(form, "Gratis en console.groq.com → API Keys")
+	_mistral = _field(form, "Pega aquí tu clave de Groq", true)
 	_mistral.text_changed.connect(func(_t: String): _refresh_start())
 
 	_label(form, "Imágenes con Cloudflare (opcional)")
@@ -57,7 +57,7 @@ func _ready() -> void:
 	form.add_child(_status)
 
 	var test := Button.new()
-	test.text = "Comprobar clave de Mistral"
+	test.text = "Comprobar clave de Groq"
 	UIStyle.style_button(test, UIStyle.ButtonKind.SECONDARY)
 	test.pressed.connect(_test_mistral)
 	form.add_child(test)
@@ -88,7 +88,7 @@ func _test_mistral() -> void:
 		_show("Primero pega tu clave.", UIStyle.ERROR_TEXT)
 		return
 	_show("Comprobando...", UIStyle.PLUM_DIM)
-	var response := await _web.get_json("https://api.mistral.ai/v1/models", PackedStringArray(["Authorization: Bearer " + key]))
+	var response := await _web.get_json("https://api.groq.com/openai/v1/models", PackedStringArray(["Authorization: Bearer " + key]))
 	if response["ok"]:
 		_show("¡La clave funciona!", Color("2a9d4b"))
 	elif response["code"] == 401:

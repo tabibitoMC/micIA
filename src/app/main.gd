@@ -1,7 +1,7 @@
 extends Control
 ## Pantalla principal. Arma la interfaz y conecta las piezas:
 ##
-##   usuario escribe -> Brain (Mistral) -> AIReply -> chat + avatar + voz
+##   usuario escribe -> Brain (Groq) -> AIReply -> chat + avatar + voz
 ##   Mood (autoload) decide si ella te bloquea; los regalos la calman.
 ##
 ## Capas (de atrás hacia adelante):
@@ -459,7 +459,7 @@ func _on_image_generated(image_path: String, prompt: String, origin: String) -> 
 	_refresh_input_state()
 
 
-## La imagen que generaste se le envía a ella (visión de Mistral) para que la
+## La imagen que generaste se le envía a ella (visión de Groq) para que la
 ## vea y opine. Si está ocupada o bloqueada, solo se muestra en el chat.
 func _share_generated_image(image_path: String, prompt: String) -> void:
 	var image := ImageUtils.load_any(image_path)
@@ -654,7 +654,7 @@ func _on_game_comment(text: String, emotion: String) -> void:
 	_voice.speak(text)
 
 
-## Al terminar el juego, ella reacciona al resultado con Mistral.
+## Al terminar el juego, ella reacciona al resultado con Groq.
 func _on_game_finished(for_ai: String, for_chat: String) -> void:
 	_close_overlay()
 	_chat.add_message(ChatView.Sender.EVENT, for_chat)
@@ -724,7 +724,7 @@ func _open_outfits() -> void:
 	_overlay.visible = true
 
 
-## Cambiar de ropa: se aplica al avatar y ella se entera (Mistral reacciona).
+## Cambiar de ropa: se aplica al avatar y ella se entera (Groq reacciona).
 func _on_outfit_chosen(outfit_id: String) -> void:
 	_close_overlay()
 	Settings.set_outfit(outfit_id)

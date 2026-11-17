@@ -1,6 +1,6 @@
 class_name MistralClient
 extends Node
-## Chat con Mistral (/v1/chat/completions), una petición a la vez.
+## Chat con Groq (/v1/chat/completions), una petición a la vez.
 ##
 ## Uso:
 ##   client.completed.connect(func(content): ...)
@@ -12,7 +12,8 @@ signal failed(message: String)
 
 ## Si el modelo elegido está saturado (429), se prueba con estos en orden.
 ## En el plan gratuito los límites son por modelo, así que otro suele responder.
-const FALLBACK_MODELS := ["mistral-small-latest", "mistral-medium-latest", "ministral-8b-latest", "open-mistral-nemo"]
+const FALLBACK_MODELS := ["openai/gpt-oss-120b", "qwen/qwen3.8-27b", "openai/gpt-oss-20b"]
+
 
 var _api: MistralApi
 var _busy := false
@@ -51,17 +52,17 @@ func chat(messages: Array, api_key: String, model: String, json_mode := true, te
 		# 429 = límite de ese modelo; 403/404 = modelo no incluido en tu plan.
 		if response["code"] == 429:
 			rate_limited = true
-		elif response["code"] not in [403, 404]:
+		elif response["code"] not in [400, 403, 404]:
 			break
 	_busy = false
 	if not response["ok"] and rate_limited:
-		response["error"] = "Mistral está limitando tu clave (demasiadas peticiones o cuota agotada). Espera unos minutos; si sigue, crea una clave nueva en console.mistral.ai."
+		response["error"] = "Groq está limitando tu clave (demasiadas peticiones o cuota agotada). Espera unos minutos; si sigue, crea una clave nueva en console.groq.com."
 	if not response["ok"]:
 		failed.emit(response["error"])
 		return
 	var content := extract_content(response["data"])
 	if content.is_empty():
-		failed.emit("Mistral devolvió una respuesta vacía.")
+		failed.emit("Groq devolvió una respuesta vacía.")
 		return
 	completed.emit(content)
 
@@ -70,13 +71,12 @@ func chat(messages: Array, api_key: String, model: String, json_mode := true, te
 ## imagen, se omiten los que no tienen visión.
 static func _models_to_try(preferred: String, messages: Array) -> Array:
 	var has_image := JSON.stringify(messages).contains("\"image_url\"")
+	if has_image:
+		return [VISION_MODEL]
 	var models: Array = [preferred]
 	for m in FALLBACK_MODELS:
-		if m in models:
-			continue
-		if has_image and m == "ministral-8b-latest":
-			continue
-		models.append(m)
+		if m not in models:
+			models.append(m)
 	return models
 
 

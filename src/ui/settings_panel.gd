@@ -38,7 +38,7 @@ func _ready() -> void:
 
 	_add_title(form, "Ajustes")
 
-	_add_label(form, "API key de Mistral")
+	_add_label(form, "API key de Groq")
 	_api_key = LineEdit.new()
 	_api_key.secret = true
 	_api_key.placeholder_text = "Pega aquí tu clave"

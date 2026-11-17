@@ -7,7 +7,7 @@ extends ImageProvider
 ## busca en cualquier forma conocida (image_url, tool_file o un enlace).
 
 const MODEL := "mistral-small-latest"
-const BASE := "https://api.mistral.ai/v1"
+const BASE := "https://api.groq.com/openai/v1"
 
 
 func display_name() -> String:

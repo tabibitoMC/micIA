@@ -13,7 +13,7 @@ const SECTION := "settings"
 
 const DEFAULTS := {
 	"api_key": "",
-	"model": "mistral-small-latest",
+	"model": "openai/gpt-oss-120b",
 	"character": "vita",
 	"companion_name": "Vita",
 	"user_name": "",
