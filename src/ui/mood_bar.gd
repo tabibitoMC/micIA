@@ -56,6 +56,11 @@ func _ready() -> void:
 	_title_label.add_theme_font_override("font", UIStyle.font(800))
 	_title_label.add_theme_font_size_override("font_size", 17)
 	_title_label.add_theme_color_override("font_color", UIStyle.PLUM)
+	# Solo el nombre se recorta si no cabe; "Enojo N" siempre se ve entero.
+	if kind == Kind.AFFECTION:
+		_title_label.clip_text = true
+		_title_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		_title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title_row.add_child(_title_label)
 	_delta_label = Label.new()
 	_delta_label.add_theme_font_override("font", UIStyle.font(800))
@@ -65,7 +70,7 @@ func _ready() -> void:
 
 	# Barrita (solo la del cariño va siempre; la del enojo aparece si hay enojo).
 	_bar = Control.new()
-	_bar.custom_minimum_size = Vector2(110, 7)
+	_bar.custom_minimum_size = Vector2(70, 7)
 	_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_bar.draw.connect(_draw_bar)
 	box.add_child(_bar)

@@ -39,7 +39,7 @@ func _ready() -> void:
 
 	_thermo = Control.new()
 	_thermo.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_thermo.custom_minimum_size = Vector2(70, 20)
+	_thermo.custom_minimum_size = Vector2(40, 20)
 	_thermo.draw.connect(_draw_thermometer)
 	row.add_child(_thermo)
 

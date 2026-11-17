@@ -12,6 +12,8 @@ extends Control
 
 const HISTORY_ON_SCREEN := 40
 ## Fracción de la pantalla que ocupa el chat (el resto deja ver al avatar).
+## Ancho máximo del chat en pantallas anchas.
+const CHAT_MAX_WIDTH := 620.0
 const CHAT_HEIGHT_RATIO := 0.36
 
 var _brain: Brain
@@ -167,15 +169,16 @@ func _build_header() -> Control:
 	header.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	header.add_theme_constant_override("separation", 8)
 
+	# La del nombre ocupa lo que sobra (y recorta el texto si no cabe); la del
+	# enojo, solo lo que necesita.
 	_name_pill = MoodBar.new(MoodBar.Kind.AFFECTION, "")
+	_name_pill.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_name_pill.size_flags_stretch_ratio = 1.6
 	header.add_child(_name_pill)
 
-	var spacer := Control.new()
-	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	header.add_child(spacer)
-
-	header.add_child(MoodBar.new(MoodBar.Kind.ANGER, "Enojo"))
+	var anger := MoodBar.new(MoodBar.Kind.ANGER, "Enojo")
+	anger.size_flags_horizontal = Control.SIZE_SHRINK_END
+	header.add_child(anger)
 	return header
 
 
@@ -675,6 +678,14 @@ func _on_resized() -> void:
 	var view := get_viewport_rect().size
 	_chat.custom_minimum_size.y = view.y * CHAT_HEIGHT_RATIO * 0.75
 	# Los botones laterales no bajan más allá de donde empieza el chat.
+	# En pantallas anchas (tablet, horizontal) el chat y la barra de escritura
+	# no se estiran de lado a lado: quedan centrados con un ancho cómodo.
+	var usable := view.x - 24.0
+	var wide := usable > CHAT_MAX_WIDTH
+	for part in [_chat, _input_row]:
+		if part:
+			part.size_flags_horizontal = Control.SIZE_SHRINK_CENTER if wide else Control.SIZE_FILL
+			part.custom_minimum_size.x = CHAT_MAX_WIDTH if wide else 0.0
 	_place_side_panel.call_deferred()
 
 

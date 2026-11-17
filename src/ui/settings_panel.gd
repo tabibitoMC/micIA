@@ -24,6 +24,7 @@ var _avatar_3d: CheckButton
 var _voice_rate: HSlider
 var _voice_pitch: HSlider
 var _ui_scale: HSlider
+var _device_label: Label
 var _clear_button: Button
 var _clear_armed := false
 
@@ -117,6 +118,11 @@ func _ready() -> void:
 	_voice_rate = _add_slider(form, "Velocidad de voz", 0.5, 2.0, 0.05)
 	_voice_pitch = _add_slider(form, "Tono de voz", 0.5, 2.0, 0.05)
 	_ui_scale = _add_slider(form, "Tamaño de la interfaz", 0.5, 2.5, 0.05)
+	_device_label = Label.new()
+	_device_label.add_theme_font_size_override("font_size", 13)
+	_device_label.add_theme_color_override("font_color", UIStyle.PLUM_DIM)
+	_device_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	form.add_child(_device_label)
 
 	_add_title_small(form, "Imágenes gratis")
 	_add_label(form, "Cloudflare Account ID (opcional)")
@@ -188,6 +194,10 @@ func load_values() -> void:
 	_voice_rate.value = float(Settings.get_value("voice_rate"))
 	_voice_pitch.value = float(Settings.get_value("voice_pitch"))
 	_ui_scale.value = float(Settings.get_value("ui_scale"))
+	var device: String = {"telefono": "teléfono", "tablet": "tablet", "pc": "PC"}[Settings.device_type()]
+	var inches := Settings.screen_inches()
+	_device_label.text = "Detectado: %s%s. El tamaño se ajusta solo; con 1.0 queda el recomendado y nunca se sale de la pantalla." % [
+		device, (" de %.1f pulgadas" % inches) if inches > 0.0 else ""]
 
 
 func _on_save_pressed() -> void:

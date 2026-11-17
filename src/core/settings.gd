@@ -110,33 +110,92 @@ func save() -> void:
 	changed.emit()
 
 
-## Tamaño de la interfaz = el de Ajustes x uno automático según la pantalla.
-## En teléfonos y tablets se busca que los botones midan lo mismo en
-## milímetros: en un teléfono queda más grande (más fácil de tocar) y en una
-## tablet no se agiganta.
-const TARGET_MM_PER_UNIT := 0.16
+## Tamaño de la interfaz = el de Ajustes x uno automático según el equipo.
+##
+## La app mira el tamaño físico de la pantalla (pulgadas, con los DPI) para
+## saber si es teléfono o tablet:
+##  - teléfono (< 7"): botones grandes, fáciles de tocar con el pulgar.
+##  - tablet (>= 7"): una medida física parecida (se sostiene más lejos, así
+##    que un poco mayor); la tablet no se agiganta, gana espacio.
+## Y nunca deja que la interfaz sea más ancha que la pantalla: el diseño
+## necesita MIN_WIDTH_UNITS de ancho; si no cabe, se achica lo justo.
+const PHONE_MM_PER_UNIT := 0.165
+const TABLET_MM_PER_UNIT := 0.175
+const TABLET_MIN_INCHES := 7.0
+const MIN_WIDTH_UNITS := 400.0
+const MIN_HEIGHT_UNITS := 560.0
 
 
 func apply_ui_scale() -> void:
 	var tree := get_tree()
 	if tree and tree.root:
-		tree.root.content_scale_factor = clampf(float(get_value("ui_scale")) * auto_ui_factor(), 0.4, 3.5)
+		tree.root.content_scale_factor = ui_factor()
+
+
+## Factor final (el que se aplica a la ventana).
+func ui_factor() -> float:
+	var wanted := clampf(float(get_value("ui_scale")), 0.5, 2.5) * auto_ui_factor()
+	return clampf(minf(wanted, fit_factor()), 0.4, 3.5)
+
+
+## Máximo que cabe: con esto la interfaz mide justo MIN_WIDTH_UNITS de ancho
+## (y MIN_HEIGHT_UNITS de alto, por si el teléfono está acostado).
+func fit_factor() -> float:
+	var window := Vector2(DisplayServer.window_get_size())
+	var stretch := _stretch_scale(window)
+	if stretch <= 0.0:
+		return 1.0
+	return minf(window.x / (MIN_WIDTH_UNITS * stretch), window.y / (MIN_HEIGHT_UNITS * stretch))
 
 
 func auto_ui_factor() -> float:
-	if not OS.has_feature("mobile"):
+	var dpi := _dpi()
+	if dpi <= 0.0:
 		return 1.0
-	var dpi := float(DisplayServer.screen_get_dpi())
 	var window := Vector2(DisplayServer.window_get_size())
-	var base_size := Vector2(
+	var stretch := _stretch_scale(window)
+	if stretch <= 0.0:
+		return 1.0
+	var mm := TABLET_MM_PER_UNIT if device_type() == "tablet" else PHONE_MM_PER_UNIT
+	return clampf((mm * dpi / 25.4) / stretch, 0.5, 2.0)
+
+
+## "telefono", "tablet" o "pc".
+func device_type() -> String:
+	if _dpi() <= 0.0:
+		return "pc"
+	return "tablet" if screen_inches() >= TABLET_MIN_INCHES else "telefono"
+
+
+## Diagonal física de la pantalla, en pulgadas (0 si no se sabe).
+func screen_inches() -> float:
+	var dpi := _dpi()
+	if dpi <= 0.0:
+		return 0.0
+	# En teléfonos y tablets la app ocupa toda la pantalla: la ventana mide lo
+	# mismo que la pantalla (y en pantalla dividida, cuenta lo que se ve).
+	return Vector2(DisplayServer.window_get_size()).length() / dpi
+
+
+## DPI reales en teléfonos y tablets. En PC no se usan (0), salvo para
+## pruebas con la variable de entorno MICIA_TEST_DPI.
+func _dpi() -> float:
+	var test := OS.get_environment("MICIA_TEST_DPI")
+	if not test.is_empty():
+		return float(test)
+	if not OS.has_feature("mobile"):
+		return 0.0
+	return float(DisplayServer.screen_get_dpi())
+
+
+## Escala que ya aplica Godot (modo "expand"): la menor de las dos.
+static func _stretch_scale(window: Vector2) -> float:
+	var base := Vector2(
 		float(ProjectSettings.get_setting("display/window/size/viewport_width", 480)),
 		float(ProjectSettings.get_setting("display/window/size/viewport_height", 640)))
-	if dpi <= 0.0 or window.x <= 0.0:
-		return 1.0
-	# Escala que ya pone Godot (modo "expand"): la menor de las dos.
-	var stretch := minf(window.x / base_size.x, window.y / base_size.y)
-	var wanted := TARGET_MM_PER_UNIT * dpi / 25.4
-	return clampf(wanted / stretch, 0.55, 1.6)
+	if window.x <= 0.0 or window.y <= 0.0:
+		return 0.0
+	return minf(window.x / base.x, window.y / base.y)
 
 
 func _load_saved() -> void:
