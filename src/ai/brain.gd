@@ -56,7 +56,7 @@ func send_photo(image: Image, caption: String) -> String:
 	var text := caption if not caption.is_empty() else "Te mando esta foto."
 	var api_content := [
 		{"type": "text", "text": text},
-		{"type": "image_url", "image_url": ImageUtils.to_jpeg_data_url(small)},
+		{"type": "image_url", "image_url": {"url": ImageUtils.to_jpeg_data_url(small)}},
 	]
 	var entry := Memory.make_entry("user", "[FOTO] " + text, caption, Memory.KIND_MESSAGE, saved_path)
 	_ask(entry, api_content)
