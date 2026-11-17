@@ -79,7 +79,23 @@ func _ask(user_entry: Dictionary, api_content: Variant = null) -> void:
 	messages.append({"role": "user", "content": api_content if api_content != null else user_entry["content"]})
 
 	thinking_changed.emit(true)
-	_client.chat(messages, str(Settings.get_value("api_key")), str(Settings.get_value("model")))
+	_client.chat(messages, str(Settings.get_value("api_key")), str(Settings.get_value("model")), true, 0.95)
+
+
+## Lo que ella dijo en sus últimas respuestas (para que no lo repita).
+func _recent_lines(count: int) -> Array:
+	var lines: Array = []
+	for entry in Memory.recent_for_api(count * 2):
+		if entry.get("role") != "assistant":
+			continue
+		var content: Variant = entry.get("content", "")
+		var text := str(content)
+		var parsed: Variant = JSON.parse_string(text)
+		if typeof(parsed) == TYPE_DICTIONARY and parsed.has("texto"):
+			text = str(parsed["texto"])
+		if not text.strip_edges().is_empty():
+			lines.append(text.strip_edges().left(160))
+	return lines.slice(maxi(0, lines.size() - count))
 
 
 func _system_prompt() -> String:
@@ -94,6 +110,7 @@ func _system_prompt() -> String:
 		"mood_description": Mood.describe_for_prompt(),
 		"treatment_summary": Mood.treatment_summary(),
 		"custom_prompt": str(Settings.get_value("custom_prompt")),
+		"recent_lines": _recent_lines(6),
 		"facts": Memory.facts,
 		"mods_prompt": Mods.extra_prompt(),
 		"scene": scene_context.call(),

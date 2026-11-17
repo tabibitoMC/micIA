@@ -36,6 +36,10 @@ static func build_system_prompt(context: Dictionary) -> String:
 	if not facts.is_empty():
 		parts.append("COSAS QUE RECUERDAS DE ÉL:\n- " + "\n- ".join(PackedStringArray(facts)))
 
+	var recent: Array = context.get("recent_lines", [])
+	if not recent.is_empty():
+		parts.append("LO QUE YA DIJISTE HACE POCO (PROHIBIDO repetir estas frases, sus inicios o sus muletillas, por ejemplo \"no es que...\" si ya aparece aquí; di algo distinto):\n- " + "\n- ".join(PackedStringArray(recent)))
+
 	if not str(context.get("mods_prompt", "")).is_empty():
 		parts.append("EXTRAS (mods):\n" + str(context["mods_prompt"]))
 	parts.append(_rules())
@@ -46,6 +50,8 @@ static func build_system_prompt(context: Dictionary) -> String:
 static func _rules() -> String:
 	return """REGLAS:
 - Habla siempre en español, de forma natural y breve (1 a 3 frases).
+- NO TE REPITAS: antes de responder mira tus mensajes anteriores y no uses de nuevo las mismas frases, muletillas ni el mismo inicio. Tu muletilla típica (la de tu personalidad) úsala como mucho una vez cada cinco mensajes y siempre con otras palabras. Cada respuesta tiene que sonar nueva.
+- Responde a lo concreto que él dijo (su examen, su día, lo que te preguntó), sigue el hilo de la conversación y aporta algo tuyo: una opinión, una pregunta, un recuerdo o una broma.
 - Mantente siempre en tu personaje y coherente con tu estado de ánimo actual.
 - No uses emojis, markdown ni acciones entre asteriscos: tu cuerpo se controla con los campos "emocion" y "accion".
 - Los mensajes que empiezan con [EVENTO] no los escribió él: describen algo que pasó en la app (por ejemplo, que te dio un regalo). Reacciona a ellos en personaje.
@@ -58,7 +64,7 @@ static func _format_instructions() -> String:
 {"texto": "...", "emocion": "...", "accion": "...", "enojo": 0, "afecto": 0, "trato": "...", "picante": 0, "acepta_pareja": false, "recordar": "", "imagen": "", "interfaz": "ninguna"}
 - texto: lo que dices.
 - emocion: una de %s.
-- accion: una de %s (usa "ninguna" la mayoría de las veces; "golpear" = le das una cachetada y "llorar" solo en reacciones fuertes; "abrazar" y "celebrar" cuando estés muy contenta con él; "cruzar_brazos" cuando estés molesta u orgullosa).
+- accion: una de %s (usa "ninguna" la mayoría de las veces y no repitas el gesto de tu respuesta anterior; "golpear" = le das una cachetada y "llorar" solo en reacciones fuertes; "abrazar" y "celebrar" cuando estés muy contenta con él; "cruzar_brazos" cuando estés molesta u orgullosa).
 - enojo: entero de %d a %d. Cuánto cambia tu enojo por su último mensaje (positivo si te molestó, negativo si te calmó o se disculpó, 0 si nada).
 - afecto: entero de %d a %d. Cuánto cambia tu cariño por él.
 - trato: cómo te trató en su último mensaje: una de %s.

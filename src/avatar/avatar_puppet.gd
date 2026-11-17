@@ -46,10 +46,10 @@ const ARM_FRONT_Z := -0.5
 const EMOTIONS := {
 	"neutral": {"eyes": 0.0, "mouth": [0.5, 0.0], "head": [0.0, 0.0], "roll": 0.0, "brow": 0.0, "brow_y": 0.0, "arms": 0.0},
 	"feliz": {"eyes": 0.85, "mouth": [1.0, 0.45], "head": [0.0, 0.1], "roll": 0.12, "brow": -0.05, "brow_y": -6.0, "arms": -0.12},
-	"triste": {"eyes": 0.35, "mouth": [0.0, 0.0], "head": [0.0, -0.45], "roll": -0.1, "brow": -0.3, "brow_y": 0.0, "arms": 0.3},
+	"triste": {"eyes": 0.35, "mouth": [0.0, 0.0], "head": [0.0, -0.45], "roll": -0.1, "brow": -0.3, "brow_y": 0.0, "arms": 0.18},
 	"enojada": {"eyes": 0.25, "mouth": [0.0, 0.15], "head": [0.0, -0.15], "roll": 0.0, "brow": 0.35, "brow_y": 10.0, "arms": 0.22},
 	"sorprendida": {"eyes": 0.0, "mouth": [0.5, 0.9], "head": [0.0, 0.25], "roll": 0.0, "brow": 0.0, "brow_y": -16.0, "arms": -0.3},
-	"avergonzada": {"eyes": 0.3, "mouth": [0.3, 0.1], "head": [0.3, -0.3], "roll": 0.15, "brow": -0.15, "brow_y": 0.0, "blush": 1.0, "arms": 0.38},
+	"avergonzada": {"eyes": 0.3, "mouth": [0.3, 0.1], "head": [0.3, -0.3], "roll": 0.15, "brow": -0.15, "brow_y": 0.0, "blush": 1.0, "arms": 0.22},
 	"pensativa": {"eyes": 0.15, "mouth": [0.3, 0.0], "head": [-0.35, 0.3], "roll": -0.15, "brow": 0.1, "brow_y": -4.0, "arms": 0.15},
 	"coqueta": {"eyes": 0.4, "mouth": [1.0, 0.2], "head": [0.2, -0.1], "roll": 0.25, "brow": 0.0, "brow_y": -4.0, "blush": 0.6, "arms": 0.2},
 }
@@ -105,6 +105,21 @@ var act_tears := 0.0
 var _walk := 0.0
 var _home_x := 0.0
 
+# Vida propia: pequeños gestos cuando está quieta o hablando. Van aparte de
+# los gestos grandes para no pisarse.
+var idle_head := Vector2.ZERO
+var idle_roll := 0.0
+var idle_lean := 0.0
+var idle_arm_l := 0.0
+var idle_arm_r := 0.0
+var _idle_timer := 2.0
+var _idle_tween: Tween
+var _eye_target := 0.0
+var _eye := 0.0
+var _eye_timer := 1.0
+var _voice_level := -1.0
+var _voice_level_time := 0.0
+
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
@@ -131,6 +146,15 @@ func set_emotion(emotion: String) -> void:
 
 func set_talking(talking: bool) -> void:
 	_talking = talking
+	if talking:
+		_idle_timer = 0.3
+	else:
+		_voice_level = -1.0
+
+
+func set_mouth_level(level: float) -> void:
+	_voice_level = level
+	_voice_level_time = _time
 
 
 ## El conjunto de ropa gira el tono de la ropa (hacia el color de `cloth`).
@@ -256,6 +280,13 @@ func play_action(action: String) -> void:
 
 
 func _reset_actions() -> void:
+	if _idle_tween:
+		_idle_tween.kill()
+	idle_head = Vector2.ZERO
+	idle_roll = 0.0
+	idle_lean = 0.0
+	idle_arm_l = 0.0
+	idle_arm_r = 0.0
 	act_head = Vector2.ZERO
 	act_roll = 0.0
 	act_body = Vector2.ZERO
@@ -507,6 +538,9 @@ func _process(delta: float) -> void:
 	if _talking and not _sleeping:
 		_talk_time += delta
 		var open := clampf(0.45 + 0.55 * sin(_talk_time * 16.0) * absf(sin(_talk_time * 4.1)), 0.0, 1.0)
+		if _voice_level >= 0.0 and _time - _voice_level_time < 0.3:
+			# Con voz real: la boca sigue el volumen del audio.
+			open = _voice_level
 		mouth_goal = Vector2(0.5 + 0.4 * sin(_talk_time * 5.3), open)
 	_mouth = _mouth.lerp(mouth_goal, 1.0 - exp(-delta * 22.0))
 
@@ -519,6 +553,14 @@ func _process(delta: float) -> void:
 	var blink_now := (1.0 - absf(_blink * 2.0 - 1.0)) if _blink > 0.0 else 0.0
 	var eyes := maxf(_eyes, blink_now)
 
+	_update_idle(delta)
+	# Mirada: los ojos saltan de vez en cuando a otro punto (como una persona).
+	_eye_timer -= delta
+	if _eye_timer <= 0.0:
+		_eye_timer = randf_range(0.8, 3.0)
+		_eye_target = 0.0 if randf() < 0.45 else randf_range(-0.7, 0.7)
+	_eye = lerpf(_eye, _eye_target, 1.0 - exp(-delta * 25.0))
+
 	# Vida propia: respira y se mece un poco (dormida, apenas).
 	var calm := 0.25 if _sleeping else 1.0
 	var sway := Vector2(sin(_time * 0.7) * 0.12, sin(_time * 0.53 + 1.0) * 0.1) * calm
@@ -526,16 +568,18 @@ func _process(delta: float) -> void:
 	var walk_bob := absf(sin(_time * 9.0)) * 0.025 * absf(_walk)
 	var talk_nod := sin(_talk_time * 7.0) * 0.06 if _talking else 0.0
 	var p := _puppet
-	p.set_param(P_HEAD, _head.x + act_head.x + sway.x + _walk * 0.5, _head.y + act_head.y + sway.y + talk_nod)
-	p.set_param(P_HEAD_ROLL, _roll + act_roll + sin(_time * 0.9) * 0.05 * calm + act_shake * 0.08)
-	p.set_param(P_BODY, act_body.x + act_lean + sway.x * 0.5 + _walk * 0.6, act_body.y + sway.y * 0.4)
+	var head_x := _head.x + act_head.x + idle_head.x + sway.x + _walk * 0.5
+	p.set_param(P_HEAD, head_x, _head.y + act_head.y + idle_head.y + sway.y + talk_nod)
+	p.set_param(P_HEAD_ROLL, _roll + act_roll + idle_roll + sin(_time * 0.9) * 0.05 * calm + act_shake * 0.08)
+	p.set_param(P_BODY, act_body.x + act_lean + idle_lean + sway.x * 0.5 + _walk * 0.6, act_body.y + sway.y * 0.4)
 	p.set_param(P_BODY_ROLL, sin(_time * 9.0) * 0.25 * absf(_walk) + act_shake * 0.15 + act_lean * 0.15)
 	p.set_param(P_BODY_X, act_shake * 0.2)
 	p.set_param(P_MOUTH, _mouth.x, _mouth.y)
 	p.set_param(P_BLINK_L, eyes)
 	p.set_param(P_BLINK_R, eyes)
-	p.set_param(P_EYE_L, clampf((_head.x + act_head.x) * 0.5, -1.0, 1.0))
-	p.set_param(P_EYE_R, clampf((_head.x + act_head.x) * 0.5, -1.0, 1.0))
+	var eye := clampf(head_x * 0.4 + _eye, -1.0, 1.0)
+	p.set_param(P_EYE_L, eye)
+	p.set_param(P_EYE_R, eye)
 	p.set_param(P_BREATH, breath)
 	_apply_arms(calm)
 	p.set_node_offset("Eyebrow:: Left", Vector2(0, _brow_y), -_brow)
@@ -558,14 +602,94 @@ func _apply_arms(calm: float) -> void:
 	var idle := sin(_time * 1.1) * 0.035 * calm
 	var swing := sin(_time * 9.0) * 0.3 * absf(_walk)
 	var posture := _arms * ARM_CROSSED
-	var left := posture + act_arm_l + idle + swing
-	var right := posture + act_arm_r + idle - swing
-	# Por delante del cuerpo cuando los recoge mucho o lo pide el gesto.
-	var front := act_front > 0.5 or _arms > 0.55
+	var left := posture + act_arm_l + idle_arm_l + idle + swing
+	var right := posture + act_arm_r + idle_arm_r + idle - swing
+	# Cada brazo pasa por delante del cuerpo en cuanto se recoge hacia
+	# dentro; si no, la mano queda escondida detrás de la falda.
 	_puppet.set_node_offset(ARM_L, Vector2.ZERO, left, Vector2.ONE, ARM_L_PIVOT)
 	_puppet.set_node_offset(ARM_R, Vector2.ZERO, -right, Vector2.ONE, ARM_R_PIVOT)
-	_puppet.set_node_z(ARM_L, ARM_FRONT_Z if front else 0.0)
-	_puppet.set_node_z(ARM_R, ARM_FRONT_Z + 0.05 if front else 0.0)
+	_puppet.set_node_z(ARM_L, ARM_FRONT_Z if (act_front > 0.5 or left > 0.12) else 0.0)
+	_puppet.set_node_z(ARM_R, ARM_FRONT_Z + 0.05 if (act_front > 0.5 or right > 0.12) else 0.0)
+
+
+## Pequeños gestos al azar: así nunca se queda congelada.
+func _update_idle(delta: float) -> void:
+	_idle_timer -= delta
+	if _idle_timer > 0.0:
+		return
+	var busy := (_action_tween and _action_tween.is_running()) or absf(_walk) > 0.01
+	if _sleeping or _in_bed or busy:
+		_idle_timer = 1.0
+		return
+	if _talking:
+		_idle_timer = randf_range(0.7, 1.6)
+		_talk_gesture()
+	else:
+		_idle_timer = randf_range(2.5, 6.0)
+		_idle_gesture()
+
+
+func _new_idle_tween() -> Tween:
+	if _idle_tween:
+		_idle_tween.kill()
+	_idle_tween = create_tween().set_parallel().set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	return _idle_tween
+
+
+## Al hablar: acentos con la cabeza y, a veces, un ademán con una mano.
+func _talk_gesture() -> void:
+	var t := _new_idle_tween()
+	var head := Vector2(randf_range(-0.35, 0.35), randf_range(-0.15, 0.25))
+	t.tween_property(self, "idle_head", head, 0.35)
+	t.tween_property(self, "idle_roll", randf_range(-0.12, 0.12), 0.4)
+	var r := randf()
+	if r < 0.3:
+		t.tween_property(self, "idle_arm_l", randf_range(-0.7, -0.35), 0.3)
+		t.chain().tween_property(self, "idle_arm_l", 0.0, 0.45).set_delay(0.25)
+	elif r < 0.6:
+		t.tween_property(self, "idle_arm_r", randf_range(-0.7, -0.35), 0.3)
+		t.chain().tween_property(self, "idle_arm_r", 0.0, 0.45).set_delay(0.25)
+	elif r < 0.75:
+		t.tween_property(self, "idle_lean", randf_range(-0.3, 0.3), 0.5)
+
+
+## Quieta: mira a un lado, ladea la cabeza, cambia el peso de pierna, se
+## acomoda, mira arriba pensando... y vuelve a su postura.
+func _idle_gesture() -> void:
+	var t := _new_idle_tween()
+	var hold := randf_range(0.8, 2.0)
+	match randi() % 7:
+		0:  # mirar a un lado
+			var side := randf_range(0.4, 0.8) * (1.0 if randf() < 0.5 else -1.0)
+			t.tween_property(self, "idle_head", Vector2(side, randf_range(-0.1, 0.15)), 0.45)
+			_eye_target = side * 0.6
+		1:  # ladear la cabeza
+			t.tween_property(self, "idle_roll", randf_range(0.15, 0.25) * (1.0 if randf() < 0.5 else -1.0), 0.6)
+			t.tween_property(self, "idle_head", Vector2(randf_range(-0.2, 0.2), 0.1), 0.6)
+		2:  # cambiar el peso de pierna
+			t.tween_property(self, "idle_lean", randf_range(0.25, 0.45) * (1.0 if randf() < 0.5 else -1.0), 0.9)
+			t.tween_property(self, "idle_roll", randf_range(-0.08, 0.08), 0.9)
+			hold += 1.5
+		3:  # mirar arriba, pensativa
+			t.tween_property(self, "idle_head", Vector2(randf_range(-0.4, 0.4), 0.5), 0.6)
+			_eye_target = randf_range(-0.5, 0.5)
+		4:  # acomodarse la ropa / estirar un brazo
+			var arm := "idle_arm_l" if randf() < 0.5 else "idle_arm_r"
+			t.tween_property(self, arm, randf_range(-0.5, -0.3), 0.5)
+			t.tween_property(self, "idle_head", Vector2(0, -0.3), 0.5)
+			t.chain().tween_property(self, arm, 0.0, 0.5).set_delay(0.4)
+		5:  # pequeño balanceo alegre
+			t.tween_property(self, "idle_lean", 0.25, 0.4)
+			t.chain().tween_property(self, "idle_lean", -0.25, 0.5)
+			t.chain().tween_property(self, "idle_lean", 0.0, 0.4)
+		_:  # mirarte de frente con la cabeza un poco ladeada
+			t.tween_property(self, "idle_head", Vector2(0, 0.08), 0.4)
+			t.tween_property(self, "idle_roll", randf_range(-0.1, 0.1), 0.4)
+	# Volver a la postura normal.
+	var back := t.chain().set_parallel()
+	back.tween_property(self, "idle_head", Vector2.ZERO, 0.7).set_delay(hold)
+	back.tween_property(self, "idle_roll", 0.0, 0.7).set_delay(hold)
+	back.tween_property(self, "idle_lean", 0.0, 0.8).set_delay(hold)
 
 
 # --- Construcción ------------------------------------------------------------------------

@@ -26,6 +26,12 @@ func set_talking(_talking: bool) -> void:
 	pass
 
 
+## Cuánto abrir la boca (0..1) según el volumen real de la voz. Mientras
+## llegue este dato, el avatar lo usa en vez de la boca simulada.
+func set_mouth_level(_level: float) -> void:
+	pass
+
+
 ## Colores del conjunto de ropa (solo el avatar 3D lo usa).
 func apply_tint(_cloth: Color, _hair: Color) -> void:
 	pass

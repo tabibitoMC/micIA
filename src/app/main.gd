@@ -315,6 +315,7 @@ func _switch_character(character: String) -> void:
 
 
 var _avatar_model_path := ""
+var _last_action := ""
 
 
 ## Crea el avatar 3D o 2D según Ajustes y el personaje. Si el 3D falla, usa el 2D.
@@ -398,6 +399,7 @@ func _connect_signals() -> void:
 
 	_voice.speaking_started.connect(func(): _avatar.set_talking(true))
 	_voice.speaking_finished.connect(func(): _avatar.set_talking(false))
+	_voice.level_changed.connect(func(level: float): _avatar.set_mouth_level(level))
 
 	Mood.blocked_changed.connect(func(is_blocked: bool): _announce_block.call_deferred(is_blocked))
 	Settings.changed.connect(_on_settings_changed)
@@ -482,7 +484,13 @@ func _on_image_failed(message: String, _origin: String) -> void:
 func _on_reply(reply: AIReply) -> void:
 	_chat.add_message(ChatView.Sender.COMPANION, reply.text)
 	_avatar.set_emotion(reply.emotion)
-	_avatar.play_action(reply.action)
+	# El mismo gesto dos veces seguidas se ve robótico: la segunda vez se
+	# deja solo la expresión (salvo golpes y llanto, que son reacciones).
+	var action := reply.action
+	if action == _last_action and action not in ["golpear", "llorar"]:
+		action = "ninguna"
+	_last_action = reply.action
+	_avatar.play_action(action)
 	_voice.speak(reply.text)
 	if reply.interface_action != "ninguna":
 		# Primero el gesto, luego se mueve por la pantalla.

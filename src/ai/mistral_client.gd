@@ -44,6 +44,10 @@ func chat(messages: Array, api_key: String, model: String, json_mode := true, te
 	}
 	if json_mode:
 		payload["response_format"] = {"type": "json_object"}
+	# Castiga repetir las mismas palabras (las respuestas se sienten menos
+	# "de plantilla").
+	payload["frequency_penalty"] = 0.6
+	payload["presence_penalty"] = 0.4
 
 	_busy = true
 	var response: Dictionary = {}

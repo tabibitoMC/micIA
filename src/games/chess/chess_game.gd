@@ -4,7 +4,9 @@ extends MiniGame
 ## ChessRules; aquí solo la interfaz y los turnos.
 
 ## Letras en español: Rey, Dama, Torre, Alfil, Caballo, Peón.
-const LETTERS := {"K": "R", "Q": "D", "R": "T", "B": "A", "N": "C", "P": "p"}
+## Figuras de ajedrez (fuente DejaVu Sans, incluida en assets/fonts).
+const GLYPHS := {"K": "♚", "Q": "♛", "R": "♜", "B": "♝", "N": "♞", "P": "♟"}
+const PIECE_FONT := preload("res://assets/fonts/DejaVuSans.ttf")
 const LIGHT := Color("fde8ef")
 const DARK := Color("e7a6c0")
 const SELECTED := Color("ffd54f")
@@ -36,13 +38,14 @@ func build() -> void:
 			var index := rank * 8 + file
 			var square := Button.new()
 			square.custom_minimum_size = Vector2(44, 44)
-			square.add_theme_font_size_override("font_size", 28)
+			square.add_theme_font_size_override("font_size", 34)
+			square.add_theme_font_override("font", PIECE_FONT)
 			square.pressed.connect(_on_square.bind(index))
 			grid.add_child(square)
 			_squares.resize(64)
 			_squares[index] = square
 	var legend := Label.new()
-	legend.text = "Tú: letras blancas · Ella: letras oscuras\nR rey · D dama · T torre · A alfil · C caballo · p peón"
+	legend.text = "Tú juegas con las blancas · Ella con las negras"
 	legend.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	legend.add_theme_font_size_override("font_size", 12)
 	legend.add_theme_color_override("font_color", UIStyle.PLUM_DIM)
@@ -132,7 +135,7 @@ func _refresh() -> void:
 		var style := UIStyle.rounded(color, 0, 0)
 		for state in ["normal", "hover", "pressed", "focus", "disabled"]:
 			square.add_theme_stylebox_override(state, style)
-		square.text = LETTERS[piece[1]] if piece != "" else ""
+		square.text = GLYPHS[piece[1]] if piece != "" else ""
 		# Blancas: letra blanca con borde fino. Negras: letra oscura y sin
 		# borde. (Un borde grueso hacía que las blancas se vieran oscuras.)
 		var white := piece.begins_with("w")
@@ -140,4 +143,4 @@ func _refresh() -> void:
 		for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_disabled_color"]:
 			square.add_theme_color_override(c, font)
 		square.add_theme_color_override("font_outline_color", Color("6b2f55"))
-		square.add_theme_constant_override("outline_size", 4 if white else 0)
+		square.add_theme_constant_override("outline_size", 5 if white else 0)
