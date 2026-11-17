@@ -1,0 +1,5 @@
+aka.puppet — modelo "Aka" de los ejemplos de Inochi2D.
+Diseño y rigging: seagetch (https://twitter.com/seagetch)
+Licencia: Creative Commons Attribution 4.0 (https://creativecommons.org/licenses/by/4.0/)
+Fuente: https://github.com/Inochi2D/example-models
+Convertido al formato .puppet con tools/bake_puppet.py (texturas reducidas).

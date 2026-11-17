@@ -317,7 +317,7 @@ var _avatar_model_path := ""
 
 ## Crea el avatar 3D o 2D según Ajustes y el personaje. Si el 3D falla, usa el 2D.
 func _rebuild_avatar() -> void:
-	var want_3d := bool(Settings.get_value("avatar_3d"))
+	var want_3d := true
 	var outfit := Settings.current_outfit()
 	var model_path := str(outfit.get("model", Settings.character()["model"]))
 	if _avatar != null and want_3d == _avatar_is_3d and (not want_3d or model_path == _avatar_model_path):
@@ -329,17 +329,16 @@ func _rebuild_avatar() -> void:
 		_avatar = null
 
 	if want_3d:
-		var avatar_3d := Avatar3D.new()
+		var avatar_3d := AvatarPuppet.new()
 		avatar_3d.model_path = model_path
 		avatar_3d.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		_avatar_layer.add_child(avatar_3d)
 		if avatar_3d.is_ready():
 			_avatar = avatar_3d
 			_avatar_is_3d = true
-			avatar_3d.set_room(str(Settings.get_value("location")), str(Settings.get_value("room_theme")))
 		else:
 			avatar_3d.queue_free()
-			_chat.add_message(ChatView.Sender.SYSTEM, "No se pudo cargar el avatar 3D; uso el 2D.")
+			_chat.add_message(ChatView.Sender.SYSTEM, "No se pudo cargar el avatar VTuber; uso el dibujado.")
 	if _avatar == null:
 		var avatar_2d := Avatar2D.new()
 		# El 2D ocupa la parte de arriba (no toda la pantalla).
@@ -352,7 +351,7 @@ func _rebuild_avatar() -> void:
 
 	_avatar.set_turned_away(Mood.blocked)
 	# El fondo dibujado solo se usa con el avatar 2D (el 3D tiene habitaciones).
-	_room.visible = not _avatar_is_3d
+	_room.visible = true
 	_avatar.apply_tint(outfit.get("cloth", Color.WHITE), outfit.get("hair", Color.WHITE))
 	if _interface_actions:
 		_interface_actions.avatar = _avatar
@@ -679,8 +678,8 @@ func _on_welcome_finished() -> void:
 
 
 func _open_locations() -> void:
-	if not _avatar_is_3d:
-		_chat.add_message(ChatView.Sender.SYSTEM, "Los lugares necesitan el avatar 3D (Ajustes).")
+	if true:
+		_chat.add_message(ChatView.Sender.SYSTEM, "Los lugares vuelven pronto con el avatar 2D.")
 		return
 	_hide_panels()
 	_location_panel.custom_minimum_size = Vector2(minf(get_viewport_rect().size.x - 60.0, 320.0), 0)

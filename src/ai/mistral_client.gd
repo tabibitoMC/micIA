@@ -13,6 +13,8 @@ signal failed(message: String)
 ## Si el modelo elegido está saturado (429), se prueba con estos en orden.
 ## En el plan gratuito los límites son por modelo, así que otro suele responder.
 const FALLBACK_MODELS := ["openai/gpt-oss-120b", "qwen/qwen3.8-27b", "openai/gpt-oss-20b"]
+## Único modelo gratuito de Groq que acepta imágenes.
+const VISION_MODEL := "qwen/qwen3.8-27b"
 
 
 var _api: MistralApi
