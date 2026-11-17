@@ -1,0 +1,4 @@
+Fondos de micIA (dormitorio, sala, cocina, patio y cama; día, atardecer y noche).
+Generados para este proyecto con FLUX.2 [klein] 9B (Black Forest Labs) en
+Cloudflare Workers AI, en noviembre de 2026. Arte original, sin personas reales
+ni marcas. Uso libre dentro de micIA.

@@ -49,6 +49,8 @@ var _values: Dictionary = {}
 
 
 func _ready() -> void:
+	# Al girar la pantalla o cambiar de tamaño, recalcular el tamaño de la UI.
+	get_tree().root.size_changed.connect(apply_ui_scale)
 	_values = DEFAULTS.duplicate()
 	_load_dev_config()
 	_load_saved()
@@ -108,10 +110,33 @@ func save() -> void:
 	changed.emit()
 
 
+## Tamaño de la interfaz = el de Ajustes x uno automático según la pantalla.
+## En teléfonos y tablets se busca que los botones midan lo mismo en
+## milímetros: en un teléfono queda más grande (más fácil de tocar) y en una
+## tablet no se agiganta.
+const TARGET_MM_PER_UNIT := 0.16
+
+
 func apply_ui_scale() -> void:
 	var tree := get_tree()
 	if tree and tree.root:
-		tree.root.content_scale_factor = clampf(float(get_value("ui_scale")), 0.5, 3.0)
+		tree.root.content_scale_factor = clampf(float(get_value("ui_scale")) * auto_ui_factor(), 0.4, 3.5)
+
+
+func auto_ui_factor() -> float:
+	if not OS.has_feature("mobile"):
+		return 1.0
+	var dpi := float(DisplayServer.screen_get_dpi())
+	var window := Vector2(DisplayServer.window_get_size())
+	var base_size := Vector2(
+		float(ProjectSettings.get_setting("display/window/size/viewport_width", 480)),
+		float(ProjectSettings.get_setting("display/window/size/viewport_height", 640)))
+	if dpi <= 0.0 or window.x <= 0.0:
+		return 1.0
+	# Escala que ya pone Godot (modo "expand"): la menor de las dos.
+	var stretch := minf(window.x / base_size.x, window.y / base_size.y)
+	var wanted := TARGET_MM_PER_UNIT * dpi / 25.4
+	return clampf(wanted / stretch, 0.55, 1.6)
 
 
 func _load_saved() -> void:

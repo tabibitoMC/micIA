@@ -20,6 +20,10 @@ var _list: VBoxContainer
 func _ready() -> void:
 	horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
+	# Arrastrar con el dedo empieza a desplazar tras moverse un poco (así un
+	# toque en una imagen sigue siendo un toque).
+	scroll_deadzone = 10
+	mouse_filter = Control.MOUSE_FILTER_PASS
 	_list = VBoxContainer.new()
 	_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_list.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -74,10 +78,18 @@ func add_image(sender: Sender, image_path: String, caption := "") -> void:
 	picture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	var aspect := float(texture.get_height()) / maxf(1.0, texture.get_width())
 	picture.custom_minimum_size = Vector2(IMAGE_MAX_WIDTH, IMAGE_MAX_WIDTH * aspect)
-	picture.mouse_filter = Control.MOUSE_FILTER_STOP
+	# PASS: el toque abre la imagen, pero arrastrar sobre ella desplaza el chat.
+	picture.mouse_filter = Control.MOUSE_FILTER_PASS
+	# Se abre al soltar, y solo si fue un toque (no un arrastre para desplazar).
+	var press := {"at": Vector2.INF}
 	picture.gui_input.connect(func(event: InputEvent):
 		var mouse := event as InputEventMouseButton
-		if mouse and mouse.pressed and mouse.button_index == MOUSE_BUTTON_LEFT:
+		if mouse == null or mouse.button_index != MOUSE_BUTTON_LEFT:
+			return
+		if mouse.pressed:
+			press["at"] = mouse.global_position
+		elif press["at"] != Vector2.INF and mouse.global_position.distance_to(press["at"]) < 14.0:
+			press["at"] = Vector2.INF
 			image_tapped.emit(texture))
 	box.add_child(picture)
 

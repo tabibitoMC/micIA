@@ -38,6 +38,25 @@ const WOOD_DARK := Color("ad8263")
 const CREAM := Color("fff8f0")
 const LIGHTS := [Color("ffd166"), Color("ff9fbc"), Color("9fe3d0"), Color("b8a6ff")]
 
+## Fondos ilustrados (assets/backgrounds/<lugar>_<hora>.bg, WebP). Si falta
+## alguno se usa el fondo dibujado por código.
+const BG_DIR := "res://assets/backgrounds/"
+## Dónde está la ventana en cada imagen (coordenadas 0..1 de la imagen).
+const IMAGE_WINDOWS := {"dormitorio": Vector2(0.12, 0.2), "sala": Vector2(0.12, 0.23), "cocina": Vector2(0.08, 0.2)}
+## Qué parte de la imagen queda siempre a la vista al recortarla (0..1).
+const IMAGE_FOCUS := Vector2(0.5, 0.62)
+## Cama de cerca (cama.bg): dónde va su cara y la cobija que la tapa.
+const BED_HEAD := Vector2(0.735, 0.6)
+## Los pies van más abajo que la cabeza: la cama está en diagonal.
+const BED_FEET := Vector2(0.02, 0.76)
+const BLANKET := [
+	Vector2(0.0, 0.555), Vector2(0.1, 0.548), Vector2(0.2, 0.545), Vector2(0.3, 0.548),
+	Vector2(0.4, 0.552), Vector2(0.48, 0.553), Vector2(0.53, 0.565), Vector2(0.565, 0.62),
+	Vector2(0.595, 0.75), Vector2(0.607, 0.9), Vector2(0.0, 0.93),
+]
+
+var _images := {}
+
 var theme_id := DEFAULT_THEME
 ## Lugar de la casa que se dibuja.
 var place := "dormitorio"
@@ -65,6 +84,55 @@ func set_room_theme(id: String) -> void:
 	room_theme_changed.emit(id)
 
 
+## Textura del fondo ilustrado de ahora (o null si no hay).
+func current_image() -> Texture2D:
+	return _image("cama" if sleep_view else "%s_%s" % [place, theme_id])
+
+
+func _image(image_name: String) -> Texture2D:
+	if not _images.has(image_name):
+		var texture: Texture2D = null
+		var path := BG_DIR + image_name + ".bg"
+		if FileAccess.file_exists(path):
+			var image := Image.new()
+			if image.load_webp_from_buffer(FileAccess.get_file_as_bytes(path)) == OK:
+				texture = ImageTexture.create_from_image(image)
+		_images[image_name] = texture
+	return _images[image_name]
+
+
+## Dónde se dibuja la imagen para cubrir toda la pantalla (se recorta lo que
+## sobra: en teléfonos los lados, en tablets arriba y abajo).
+func _cover_rect(texture: Texture2D) -> Rect2:
+	var image_size := Vector2(texture.get_size())
+	var scale_by := maxf(size.x / image_size.x, size.y / image_size.y)
+	var drawn := image_size * scale_by
+	return Rect2((size - drawn) * IMAGE_FOCUS, drawn)
+
+
+## Punto de la imagen (0..1) -> coordenadas locales de este fondo.
+func image_point(normalized: Vector2) -> Vector2:
+	var texture := current_image()
+	if texture == null:
+		return size * normalized
+	var rect := _cover_rect(texture)
+	return rect.position + normalized * rect.size
+
+
+## La cobija de la imagen de la cama, para dibujarla ENCIMA de ella al dormir:
+## {"points": local, "uvs": 0..1, "texture": Texture2D}, o {} si no hay.
+func blanket_overlay() -> Dictionary:
+	var texture := current_image()
+	if not sleep_view or texture == null:
+		return {}
+	var points := PackedVector2Array()
+	var uvs := PackedVector2Array()
+	for point in BLANKET:
+		points.append(image_point(point))
+		uvs.append(point)
+	return {"points": points, "uvs": uvs, "texture": texture}
+
+
 func set_place(id: String) -> void:
 	if id in PLACES and id != place:
 		place = id
@@ -80,6 +148,11 @@ func set_sleep_view(enabled: bool) -> void:
 ## Dónde queda su cara al dormir (centro de la almohada, coordenadas locales)
 ## y cuánto debe medir ella de largo, en píxeles.
 func sleep_spot() -> Dictionary:
+	if current_image() != null:
+		var head := image_point(BED_HEAD)
+		var feet := image_point(BED_FEET)
+		# La cara queda a ~80 % del largo del cuerpo.
+		return {"head": head, "feet": feet, "length": head.distance_to(feet) / 0.8}
 	return {"head": Vector2(size.x * 0.7, size.y * 0.455), "length": size.x * 1.75}
 
 
@@ -97,6 +170,8 @@ func blanket_color() -> Color:
 
 ## Centro de la ventana en coordenadas globales (para que ella camine hasta ahí).
 func window_global_center() -> Vector2:
+	if current_image() != null and IMAGE_WINDOWS.has(place):
+		return global_position + image_point(IMAGE_WINDOWS[place])
 	return global_position + _window_rect().get_center()
 
 
@@ -111,6 +186,11 @@ func _draw() -> void:
 	_dim = t["dim"]
 	var w := size.x
 	var h := size.y
+	var texture := current_image()
+	if texture != null:
+		draw_texture_rect(texture, _cover_rect(texture), false)
+		_draw_vignette(w, h)
+		return
 	if sleep_view:
 		_draw_sleep_view(t, w, h)
 	elif place == "patio":

@@ -533,9 +533,11 @@ func _lie_in_bed() -> void:
 	var length_px: float = spot["length"]
 	var head: Vector2 = spot["head"]
 	# La cara está más o menos al 80 % de su altura.
-	var feet := Vector2(head.x - length_px * 0.8, head.y)
+	var feet: Vector2 = spot.get("feet", Vector2(head.x - length_px * 0.8, head.y))
 	_puppet.scale = Vector3.ONE * (length_px * meters_per_pixel / MODEL_HEIGHT)
-	_puppet.rotation.z = -PI / 2.0
+	# Sigue la diagonal de la cama (en pantalla Y crece hacia abajo).
+	var along := head - feet
+	_puppet.rotation.z = atan2(-along.y, along.x) - PI / 2.0
 	_puppet.position = Vector3(_screen_to_world_x(global_position.x + feet.x), VIEW_TOP - feet.y * meters_per_pixel, 0.0)
 
 
@@ -544,7 +546,11 @@ func _draw_foreground() -> void:
 	if not _sleeping:
 		return
 	var canvas := _foreground
-	if _in_bed:
+	var overlay: Dictionary = room.blanket_overlay() if (_in_bed and room) else {}
+	if not overlay.is_empty():
+		# La cobija de la ilustración, redibujada encima de ella.
+		canvas.draw_polygon(overlay["points"], PackedColorArray([Color.WHITE]), overlay["uvs"], overlay["texture"])
+	elif _in_bed:
 		var rect := room.blanket_rect()
 		var color := room.blanket_color()
 		if _night:
@@ -570,7 +576,9 @@ func _draw_foreground() -> void:
 	var font := get_theme_default_font()
 	for i in 3:
 		var phase := fmod(_time * 0.45 + i * 0.33, 1.0)
-		var at := head + Vector2(size.x * 0.1 + phase * 50.0, -size.y * 0.09 - phase * 80.0)
+		# Hacia el lado con más espacio (si la cabeza está a la derecha, a la izquierda).
+		var direction := -1.0 if head.x > size.x * 0.6 else 1.0
+		var at := head + Vector2(direction * (size.x * 0.04 + phase * 50.0) - (30.0 if direction < 0.0 else 0.0), -size.y * 0.09 - phase * 80.0)
 		canvas.draw_string(font, at, "z" if i < 2 else "Z", HORIZONTAL_ALIGNMENT_LEFT, -1, int(16 + phase * 18.0), Color(1, 1, 1, sin(phase * PI)))
 
 

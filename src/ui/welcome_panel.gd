@@ -21,6 +21,7 @@ func _ready() -> void:
 	_web = WebRequest.new()
 	add_child(_web)
 	var scroll := ScrollContainer.new()
+	scroll.scroll_deadzone = 10
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	add_child(scroll)
 	var form := VBoxContainer.new()

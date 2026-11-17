@@ -31,6 +31,7 @@ var _clear_armed := false
 func _ready() -> void:
 	add_theme_stylebox_override("panel", UIStyle.card(UIStyle.CREAM))
 	var scroll := ScrollContainer.new()
+	scroll.scroll_deadzone = 10
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	add_child(scroll)
 	var form := VBoxContainer.new()
