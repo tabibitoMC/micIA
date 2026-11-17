@@ -238,6 +238,8 @@ func _build_input_row() -> Control:
 ## Fondo oscuro con una ventana centrada (Ajustes o Regalos).
 func _build_overlay() -> void:
 	_overlay = ColorRect.new()
+	# Por encima de los botones laterales (que se añaden después).
+	_overlay.z_index = 20
 	_overlay.color = Color(0.25, 0.08, 0.18, 0.45)
 	_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_overlay.mouse_filter = Control.MOUSE_FILTER_STOP

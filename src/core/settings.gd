@@ -14,8 +14,8 @@ const SECTION := "settings"
 const DEFAULTS := {
 	"api_key": "",
 	"model": "openai/gpt-oss-120b",
-	"character": "vita",
-	"companion_name": "Vita",
+	"character": "aka",
+	"companion_name": "Aka",
 	"user_name": "",
 	"personality": "tsundere",
 	"avatar_3d": true,

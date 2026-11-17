@@ -77,10 +77,12 @@ def prepare_texture(image, scale):
     premult = rgba[..., :3] * alpha[..., None] if straight else rgba[..., :3]
     if scale != 1.0:
         size = (max(1, round(image.width * scale)), max(1, round(image.height * scale)))
-        alpha_small = np.asarray(Image.fromarray(alpha, mode="F").resize(size, Image.LANCZOS))
-        channels = [np.asarray(Image.fromarray(np.ascontiguousarray(premult[..., c]), mode="F").resize(size, Image.LANCZOS)) for c in range(3)]
+        alpha_small = np.asarray(Image.fromarray(alpha, mode="F").resize(size, Image.BOX))
+        channels = [np.asarray(Image.fromarray(np.ascontiguousarray(premult[..., c]), mode="F").resize(size, Image.BOX)) for c in range(3)]
         alpha = np.clip(alpha_small, 0.0, 1.0)
         premult = np.stack(channels, axis=-1)
+    # Alfa casi nulo = transparente del todo (evita velos en los bordes).
+    alpha = np.where(alpha < 0.012, 0.0, alpha).astype(np.float32)
     safe = np.maximum(alpha, 1e-4)[..., None]
     color = np.clip(premult / safe, 0.0, 1.0)
     # Relleno multi-escala: de lo más difuso a lo más fino.

@@ -9,41 +9,25 @@ extends RefCounted
 ##                  amistad / familia, sin importar la confianza.
 ##
 ## outfits: conjuntos de ropa. Cada uno puede:
-##   - "model": usar otro .vrm del mismo personaje (p. ej. hecho en VRoid con
-##     pijama o ropa casual). Si no se indica, usa el modelo del personaje.
-##   - "cloth": color que tiñe la ropa (materiales *_CLOTH de VRoid).
-##   - "hair": color que tiñe el pelo (materiales *_HAIR).
+##   - "model": usar otro .puppet del mismo personaje (otra ropa dibujada).
+##   - "cloth": color hacia el que gira el tono de la ropa.
 
-const DEFAULT_ID := "vita"
+const DEFAULT_ID := "aka"
 
 const DATA := {
-	"vita": {
-		"label": "Vita (adulta)",
-		"model": "res://assets/models/vita.vrm",
-		"default_name": "Vita",
-		"adult": true,
-		"identity": "Eres una mujer adulta de 25 años.",
-		"appearance": "adult anime woman, 25 years old, tall, short silver-white hair, heterochromia (blue and green eyes), dark navy and cyan bodysuit with glowing cyan lines, long gloves, thigh-high boots",
-		"outfits": [
-			{"id": "original", "label": "Original"},
-			{"id": "rosa", "label": "Rosa", "cloth": Color(1.0, 0.62, 0.8)},
-			{"id": "noche", "label": "Noche", "cloth": Color(0.55, 0.45, 0.8)},
-			{"id": "menta", "label": "Menta", "cloth": Color(0.6, 1.0, 0.82)},
-			{"id": "dorado", "label": "Dorado", "cloth": Color(1.0, 0.85, 0.5), "hair": Color(1.0, 0.92, 0.75)},
-		],
-	},
-	"alicia": {
-		"label": "Alicia (solo amistad)",
-		"model": "res://assets/models/alicia.vrm",
-		"default_name": "Alicia",
+	"aka": {
+		"label": "Aka (zorrita, solo amistad)",
+		"model": "res://assets/puppets/aka.puppet",
+		"default_name": "Aka",
 		"adult": false,
-		"identity": "Para él eres como una hermanita: alegre, curiosa y protegida. Vuestra relación es solo de familia y amistad.",
-		"appearance": "cute anime girl with very long blonde hair, a braid on one side, a big dark navy ribbon, big blue eyes, white dress with light blue details",
+		"identity": "Eres una chica zorro (kitsune) alegre y curiosa. Para él eres una amiga cercana; vuestra relación es solo de amistad.",
+		"appearance": "anime fox girl, short orange hair with straight bangs, big fox ears, big fluffy orange tail, red eyes, a small red leaf on her head, white and red shrine maiden outfit with a big red bow, white thigh-high socks",
 		"outfits": [
 			{"id": "original", "label": "Original"},
-			{"id": "rosa", "label": "Rosa", "cloth": Color(1.0, 0.75, 0.85)},
-			{"id": "lavanda", "label": "Lavanda", "cloth": Color(0.8, 0.75, 1.0)},
-			{"id": "menta", "label": "Menta", "cloth": Color(0.75, 1.0, 0.88)},
+			{"id": "azul", "label": "Azul", "cloth": Color(0.3, 0.5, 1.0)},
+			{"id": "morado", "label": "Morado", "cloth": Color(0.65, 0.35, 1.0)},
+			{"id": "verde", "label": "Verde", "cloth": Color(0.3, 0.9, 0.5)},
+			{"id": "rosa", "label": "Rosa", "cloth": Color(1.0, 0.35, 0.75)},
 		],
 	},
 }
