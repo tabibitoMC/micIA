@@ -17,6 +17,7 @@ const DEFAULT_ID := "aka"
 const DATA := {
 	"aka": {
 		"label": "Aka (zorrita, solo amistad)",
+		"personality": "tsundere",
 		"model": "res://assets/puppets/aka.puppet",
 		"default_name": "Aka",
 		"adult": false,
@@ -29,6 +30,43 @@ const DATA := {
 			{"id": "verde", "label": "Verde", "cloth": Color(0.3, 0.9, 0.5)},
 			{"id": "rosa", "label": "Rosa", "cloth": Color(1.0, 0.35, 0.75)},
 		],
+	},
+	## Personaje original: ilustración generada con FLUX.1 [schnell] y
+	## reescalada con Real-ESRGAN (ver assets/characters/mireya/LICENSE.txt).
+	## Se anima con AvatarIllustrated; "rig" dice dónde está cada cosa en la
+	## imagen (en píxeles).
+	"mireya": {
+		"label": "Mireya (vampira, adulta)",
+		"illustration": "res://assets/characters/mireya/mireya.pic",
+		"default_name": "Mireya",
+		"personality": "coqueta",
+		"voice_pitch": 0.9,
+		"adult": true,
+		"identity": "Eres una vampira noble, una mujer adulta de unos 30 años (en realidad tienes siglos, pero lo dices en broma). Elegante, segura de ti misma, juguetona y algo dramática; te encanta la noche, el vino tinto (dices que es \"casi\" sangre), la música clásica y las cosas bonitas. Hablas con calma y un humor pícaro, como una \"onee-san\" que lo mima y lo molesta a la vez. Vives con él dentro de su teléfono.",
+		"appearance": "anime gothic vampire noblewoman, mature adult woman around 30, long black hair in a voluminous updo with golden hairpins, sharp crimson eyes, red lipstick, small fangs, pale skin, tall curvy figure, dusty rose satin camisole with black lace, long black high-waisted mermaid skirt, white fluffy fur stole, black choker, red nails",
+		"outfits": [{"id": "original", "label": "Gótica"}],
+		"rig": {
+			"neck": Vector2(608, 850),
+			"face": Vector2(600, 715),
+			"face_radius": 175.0,
+			"hair_line": 640.0,
+			"top": 27.0,
+			"feet": 3024.0,
+			"eyes": [Vector2(519, 691), Vector2(684, 691)],
+			"eye_half": [Vector2(41, 21), Vector2(38, 20)],
+			"mouth": Vector2(600, 783),
+			"mouth_width": 40.0,
+			"cheeks": [Vector2(515, 752), Vector2(688, 752)],
+			"skin": Color8(250, 214, 205),
+			"lid_top": Color8(236, 184, 172),
+			"lid_bottom": Color8(250, 182, 170),
+			"lash": Color8(30, 16, 22),
+			"lips": Color8(165, 28, 42),
+			"chest_top": 1000.0,
+			"chest_bottom": 1500.0,
+			"skirt_top": 2000.0,
+			"fur_box": Vector4(760, 1168, 1170, 2500),
+		},
 	},
 }
 

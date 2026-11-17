@@ -1,0 +1,6 @@
+Mireya — personaje original de micIA.
+
+La ilustración (mireya.pic, WebP) se generó con FLUX.1 [schnell] de Black
+Forest Labs (modelo Apache-2.0; las imágenes generadas se pueden usar
+libremente) y se reescaló con Real-ESRGAN (modelo anime 6B, licencia BSD-3).
+No copia a ningún personaje existente.

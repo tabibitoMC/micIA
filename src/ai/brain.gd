@@ -222,6 +222,9 @@ func _on_completed(content: String) -> void:
 	if not reply.remember.is_empty():
 		Memory.add_fact(reply.remember)
 	_keep_mood_coherent(reply)
+	# Respondiendo a un resultado de consulta no se pide otra (evita bucles).
+	if _pending_kind == "consulta":
+		reply.lookup = {}
 	_pending_kind = ""
 	Mood.apply_reply(reply)
 	Relationship.apply_reply(reply, Personalities.fetch(str(Settings.get_value("personality"))))

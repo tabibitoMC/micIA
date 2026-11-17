@@ -34,11 +34,15 @@ var _trust_bar: TrustBar
 var _mod_panel: Control
 var _chat: ChatView
 var _name_pill: MoodBar
+var _anger_bar: MoodBar
+var _lookup: InfoLookup
 var _status_label: Label
 var _placeholder: RichTextLabel
 var _input_row: Control
 var _input: LineEdit
 var _send_button: Button
+var _mic_button: Button
+var _voice_input: VoiceInput
 var _photo_button: Button
 var _gift_button: SideButton
 var _keyboard_spacer: Control
@@ -48,6 +52,7 @@ var _settings_panel: SettingsPanel
 var _gift_panel: GiftPanel
 var _image_viewer: ImageViewer
 var _image_request_panel: ImageRequestPanel
+var _key_panel: KeyPanel
 var _game_panel: GamePanel
 var _outfit_panel: OutfitPanel
 var _location_panel: LocationPanel
@@ -177,6 +182,7 @@ func _build_header() -> Control:
 	header.add_child(_name_pill)
 
 	var anger := MoodBar.new(MoodBar.Kind.ANGER, "Enojo")
+	_anger_bar = anger
 	anger.size_flags_horizontal = Control.SIZE_SHRINK_END
 	header.add_child(anger)
 	return header
@@ -192,6 +198,11 @@ func _build_side_buttons() -> Control:
 	var place_button := SideButton.new(SideButton.Icon.PLACE, "Lugar")
 	place_button.pressed.connect(_open_locations)
 	column.add_child(place_button)
+
+	var switch_button := SideButton.new(SideButton.Icon.USERS, "Cambiar")
+	switch_button.tooltip_text = "Cambiar de compañera (cada una tiene su propia memoria)"
+	switch_button.pressed.connect(_cycle_character)
+	column.add_child(switch_button)
 
 	var outfit_button := SideButton.new(SideButton.Icon.DRESS, "Ropa")
 	outfit_button.pressed.connect(_open_outfits)
@@ -263,6 +274,10 @@ func _build_input_row() -> Control:
 	field.resized.connect(func(): _placeholder.position = Vector2(21, (field.size.y - _placeholder.size.y) / 2.0))
 	_input.text_changed.connect(func(_t: String): _update_placeholder())
 
+	_mic_button = _round_button("mic", Color.WHITE, Color("e0628f"), Color("f6b6cb"))
+	_mic_button.tooltip_text = "Hablarle con la voz (toca para empezar y otra vez para enviar)"
+	row.add_child(_mic_button)
+
 	_send_button = _round_button("send", Color("ef7aa5"), Color.WHITE, Color("f7a8c4"))
 	_send_button.tooltip_text = "Enviar"
 	row.add_child(_send_button)
@@ -302,7 +317,25 @@ func _update_placeholder() -> void:
 	if _placeholder == null:
 		return
 	_placeholder.visible = _input.text.is_empty() and _input.editable
-	_placeholder.text = "Escríbele a [i]%s[/i]..." % Settings.get_value("companion_name")
+	if _voice_input and _voice_input.is_listening():
+		_placeholder.text = "[color=#d1455b]Te escucho...[/color] toca para enviar"
+	else:
+		_placeholder.text = "Escríbele a [i]%s[/i]..." % Settings.get_value("companion_name")
+
+
+var _mic_tween: Tween
+
+
+## Micrófono grabando: el botón late en rojo.
+func _on_listening_changed(listening: bool) -> void:
+	_update_placeholder()
+	if _mic_tween:
+		_mic_tween.kill()
+	_mic_button.modulate = Color.WHITE
+	if listening:
+		_mic_tween = create_tween().set_loops()
+		_mic_tween.tween_property(_mic_button, "modulate", Color(1.0, 0.45, 0.5), 0.45)
+		_mic_tween.tween_property(_mic_button, "modulate", Color.WHITE, 0.45)
 
 
 ## Fondo oscuro con una ventana centrada (Ajustes o Regalos).
@@ -347,6 +380,9 @@ func _build_overlay() -> void:
 	_image_request_panel = ImageRequestPanel.new()
 	_image_request_panel.visible = false
 	center.add_child(_image_request_panel)
+	_key_panel = KeyPanel.new()
+	_key_panel.visible = false
+	center.add_child(_key_panel)
 
 	_image_viewer = ImageViewer.new()
 	_image_viewer.visible = false
@@ -373,9 +409,28 @@ func _build_services() -> void:
 	add_child(_voice)
 
 
+## Botón "Cambiar": pasa a la siguiente compañera. Cada una tiene su propio
+## historial, memoria, ánimo, confianza, nombre e instrucciones.
+func _cycle_character() -> void:
+	if _brain.is_thinking():
+		_chat.add_message(ChatView.Sender.SYSTEM, "Espera a que termine de responder.")
+		return
+	var ids := Characters.ids()
+	var next: String = ids[(ids.find(str(Settings.get_value("character"))) + 1) % ids.size()]
+	await _avatar.fade(true, 0.3)
+	Settings.set_value("character", next)
+	Settings.save()
+	if is_instance_valid(_avatar):
+		_avatar.modulate = Color.WHITE
+	_room.modulate = Color.WHITE
+	_chat.add_message(ChatView.Sender.EVENT, "Ahora estás con %s" % Settings.get_value("companion_name"))
+
+
 ## Cambia de personaje: cada uno tiene su historial, ánimo y confianza.
 func _switch_character(character: String) -> void:
 	_current_character = character
+	_name_pill.reset_delta()
+	_anger_bar.reset_delta()
 	Memory.reload()
 	Mood.reload()
 	Relationship.reload()
@@ -393,7 +448,8 @@ var _avatar_quality := true
 func _rebuild_avatar() -> void:
 	var want_3d := true
 	var outfit := Settings.current_outfit()
-	var model_path := str(outfit.get("model", Settings.character()["model"]))
+	var illustration := str(Settings.character().get("illustration", ""))
+	var model_path := illustration if not illustration.is_empty() else str(outfit.get("model", Settings.character().get("model", "")))
 	var quality := bool(Settings.get_value("avatar_high_quality"))
 	if _avatar != null and want_3d == _avatar_is_3d and (not want_3d or model_path == _avatar_model_path) and quality == _avatar_quality:
 		_avatar.apply_tint(outfit.get("cloth", Color.WHITE), outfit.get("hair", Color.WHITE))
@@ -404,7 +460,19 @@ func _rebuild_avatar() -> void:
 		_avatar.queue_free()
 		_avatar = null
 
-	if want_3d:
+	if not illustration.is_empty():
+		var drawn := AvatarIllustrated.new()
+		drawn.character = Settings.character()
+		drawn.room = _room
+		drawn.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		_avatar_layer.add_child(drawn)
+		if drawn.is_ready():
+			_avatar = drawn
+			_avatar_is_3d = true
+			drawn.set_room(str(Settings.get_value("location")), str(Settings.get_value("room_theme")))
+		else:
+			drawn.queue_free()
+	elif want_3d:
 		var avatar_3d := AvatarPuppet.new()
 		avatar_3d.model_path = model_path
 		avatar_3d.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -442,6 +510,17 @@ func _rebuild_avatar() -> void:
 
 func _connect_signals() -> void:
 	_send_button.pressed.connect(_on_send)
+	_voice_input = VoiceInput.new()
+	add_child(_voice_input)
+	_mic_button.pressed.connect(func():
+		if Mood.blocked or _brain.is_thinking():
+			return
+		_voice_input.toggle())
+	_voice_input.state_changed.connect(_on_listening_changed)
+	_voice_input.failed.connect(func(message: String): _chat.add_message(ChatView.Sender.SYSTEM, message))
+	_voice_input.transcribed.connect(func(text: String):
+		_input.text = text
+		_on_send())
 	_input.text_submitted.connect(func(_text: String): _on_send())
 	_gift_button.pressed.connect(_open_gifts)
 	_photo_button.pressed.connect(_photo_picker.open)
@@ -450,6 +529,10 @@ func _connect_signals() -> void:
 	_chat.image_tapped.connect(_open_image_viewer)
 	_image_viewer.closed.connect(_close_overlay)
 	_image_request_panel.closed.connect(_close_overlay)
+	_key_panel.closed.connect(_close_overlay)
+	_key_panel.saved.connect(func():
+		_close_overlay()
+		_chat.add_message(ChatView.Sender.EVENT, "Clave de %s guardada" % AIProviders.label()))
 	_game_panel.closed.connect(_close_overlay)
 	_outfit_panel.closed.connect(_close_overlay)
 	_location_panel.closed.connect(_close_overlay)
@@ -569,10 +652,32 @@ func _on_reply(reply: AIReply) -> void:
 	_voice.speak(reply.text)
 	if not reply.phone.is_empty() and bool(Settings.get_value("phone_actions")):
 		_do_phone_action(reply.phone)
+	if not reply.lookup.is_empty():
+		_do_lookup(reply.lookup)
 	if reply.interface_action != "ninguna":
 		# Primero el gesto, luego se mueve por la pantalla.
 		await get_tree().create_timer(0.8).timeout
 		_interface_actions.perform(reply.interface_action)
+
+
+## Ella pidió información real (clima, web, Wikipedia): se busca y se le
+## devuelve para que la cuente.
+func _do_lookup(data: Dictionary) -> void:
+	var kind := str(data.get("tipo", ""))
+	var query := str(data.get("consulta", ""))
+	var labels := {"clima": "el clima en", "web": "en internet:", "wikipedia": "en Wikipedia:"}
+	_chat.add_message(ChatView.Sender.EVENT, "Buscando %s %s" % [labels.get(kind, ""), query])
+	if _lookup == null:
+		_lookup = InfoLookup.new()
+		add_child(_lookup)
+	var result: Dictionary = await _lookup.lookup(kind, query)
+	# Espera a que termine de hablar/pensar antes de contarlo.
+	while _brain.is_thinking():
+		await get_tree().create_timer(0.3).timeout
+	var source := str(result.get("source", ""))
+	var for_ai := ("RESULTADO de tu consulta (%s, fuente: %s):\n%s" % [query, source, result["text"]]) if result["ok"] \
+		else ("Tu consulta (%s) no dio resultado: %s Díselo con naturalidad y sin inventar." % [query, result["text"]])
+	_brain.send_event(for_ai, ("Fuente: " + source) if result["ok"] and not source.is_empty() else "Sin resultados", "consulta")
 
 
 ## Abre YouTube, pone la alarma, etc. Espera un poco para que se lea su
@@ -587,6 +692,18 @@ func _do_phone_action(data: Dictionary) -> void:
 
 func _on_brain_failed(message: String) -> void:
 	_chat.add_message(ChatView.Sender.SYSTEM, message)
+	if not Settings.has_api_key() or message.begins_with("API key inválida"):
+		open_key_panel()
+
+
+## Ventana para pegar la clave del cerebro elegido.
+func open_key_panel(provider_id := "") -> void:
+	_hide_panels()
+	_key_panel.custom_minimum_size = Vector2(minf(get_viewport_rect().size.x - 60.0, 360.0), 0)
+	_key_panel.open_for(provider_id)
+	_key_panel.visible = true
+	_overlay.color = Color(0.25, 0.08, 0.18, 0.2)
+	_overlay.visible = true
 
 
 func _on_gift_chosen(gift_id: String) -> void:
@@ -650,6 +767,8 @@ func _on_settings_changed() -> void:
 	_rebuild_avatar()
 	_refresh_header()
 	_refresh_input_state()
+	if not Settings.has_api_key() and not _welcome_panel.visible:
+		open_key_panel.call_deferred()
 
 
 ## Si ella cambió el fondo, se guarda para la próxima vez.
@@ -870,6 +989,7 @@ func _hide_panels() -> void:
 	_gift_panel.visible = false
 	_image_viewer.visible = false
 	_image_request_panel.visible = false
+	_key_panel.visible = false
 	_game_panel.visible = false
 	_outfit_panel.visible = false
 	_location_panel.visible = false

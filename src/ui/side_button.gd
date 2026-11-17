@@ -5,7 +5,7 @@ extends VBoxContainer
 
 signal pressed
 
-enum Icon { GIFT, GEAR, HEART, PICTURE, GAMEPAD, DRESS, PLACE }
+enum Icon { GIFT, GEAR, HEART, PICTURE, GAMEPAD, DRESS, PLACE, USERS }
 
 ## Ícono de Lucide (ver Icons.SVG) para cada valor del enum.
 const ICON_NAMES := {
@@ -16,6 +16,7 @@ const ICON_NAMES := {
 	Icon.GAMEPAD: "gamepad-2",
 	Icon.DRESS: "shirt",
 	Icon.PLACE: "map-pin",
+	Icon.USERS: "users",
 }
 
 const TILE_SIZE := Vector2(70, 58)

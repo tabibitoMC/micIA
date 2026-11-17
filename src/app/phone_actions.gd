@@ -15,7 +15,7 @@ extends RefCounted
 ## están en export_presets.cfg).
 
 const ACTIONS := ["youtube", "buscar", "abrir_url", "maps", "musica", "abrir_app",
-	"alarma", "temporizador", "llamar", "camara", "ajustes"]
+	"alarma", "temporizador", "llamar", "camara", "ajustes", "evento", "whatsapp"]
 
 ## Nombres comunes de apps → paquete de Android.
 const APPS := {
@@ -114,6 +114,16 @@ static func perform(data: Dictionary) -> String:
 				return "No pude marcar: el número no es válido."
 			# Solo abre el marcador con el número: llamar lo decide él.
 			return _open_url("tel:" + digits, "Marcando " + digits)
+		"evento":
+			return _add_event(str(data.get("titulo", query)), str(data.get("dia", "")), int(data.get("hora", 9)), int(data.get("minuto", 0)), int(data.get("duracion", 60)))
+		"whatsapp":
+			var phone := ""
+			for c in str(data.get("numero", "")):
+				if c in "0123456789":
+					phone += c
+			var text := str(data.get("mensaje", query))
+			# Solo prepara el mensaje: enviarlo lo decide él.
+			return _open_url("https://wa.me/%s?text=%s" % [phone, text.uri_encode()], "Mensaje listo en WhatsApp")
 		"camara":
 			return _start_intent("intent:#Intent;action=android.media.action.STILL_IMAGE_CAMERA;end", "Abriendo la cámara")
 		"ajustes":
@@ -184,6 +194,31 @@ static func _set_timer(seconds: int, message: String) -> String:
 	var minutes := seconds / 60
 	var text := ("Temporizador de %d min" % minutes) if seconds % 60 == 0 else ("Temporizador de %d s" % seconds)
 	return _start_intent(uri, text)
+
+
+## Evento en el calendario (se abre la app de calendario para confirmarlo).
+static func _add_event(title: String, day: String, hour: int, minute: int, minutes: int) -> String:
+	if not is_android():
+		return "No pude crear el evento: eso solo funciona en Android."
+	var date := Time.get_datetime_dict_from_system()
+	var parts := day.split("-")
+	if parts.size() == 3:
+		date["year"] = int(parts[0])
+		date["month"] = int(parts[1])
+		date["day"] = int(parts[2])
+	date["hour"] = clampi(hour, 0, 23)
+	date["minute"] = clampi(minute, 0, 59)
+	date["second"] = 0
+	# Hora local -> milisegundos UTC.
+	var bias := int(Time.get_time_zone_from_system()["bias"]) * 60
+	var start := (Time.get_unix_time_from_datetime_dict(date) - bias) * 1000
+	var end := start + maxi(minutes, 15) * 60 * 1000
+	var label := title.strip_edges().left(80)
+	if label.is_empty():
+		label = "Evento"
+	var uri := "intent://com.android.calendar/events#Intent;scheme=content;action=android.intent.action.INSERT;launchFlags=0x10000000;S.title=%s;l.beginTime=%d;l.endTime=%d;end" % [
+		label.uri_encode(), start, end]
+	return _start_intent(uri, "Evento «%s» listo en el calendario" % label)
 
 
 ## Lanza un Intent descrito como URI "intent:#Intent;...;end".

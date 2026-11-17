@@ -38,6 +38,8 @@ var spice := 0
 var accepts_partner := false
 ## Algo que hace en el teléfono (ver PhoneActions), o {} si nada.
 var phone := {}
+## Información que quiere consultar (ver InfoLookup): {"tipo", "consulta"}.
+var lookup := {}
 
 
 ## Convierte el texto devuelto por la IA en un AIReply. Devuelve null si no
@@ -66,6 +68,10 @@ static func from_text(raw: String) -> AIReply:
 	var phone_value: Variant = data.get("telefono", {})
 	if typeof(phone_value) == TYPE_DICTIONARY and str(phone_value.get("accion", "")) in PhoneActions.ACTIONS:
 		reply.phone = phone_value
+	var lookup_value: Variant = data.get("consultar", {})
+	if typeof(lookup_value) == TYPE_DICTIONARY and str(lookup_value.get("tipo", "")) in InfoLookup.KINDS \
+			and not str(lookup_value.get("consulta", "")).strip_edges().is_empty():
+		reply.lookup = lookup_value
 	var image_value: Variant = data.get("imagen", "")
 	reply.image_prompt = str(image_value).strip_edges() if image_value != null else ""
 	return reply
@@ -85,6 +91,7 @@ func to_json_string() -> String:
 		"imagen": image_prompt,
 		"interfaz": interface_action,
 		"telefono": phone,
+		"consultar": lookup,
 		"picante": spice,
 		"acepta_pareja": accepts_partner,
 	})

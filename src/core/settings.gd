@@ -20,6 +20,8 @@ const DEFAULTS := {
 	"phone_actions": true,
 	"model": "openai/gpt-oss-120b",
 	"character": "aka",
+	## Ajustes por personaje (ver PER_CHARACTER).
+	"profiles": {},
 	"companion_name": "Aka",
 	"user_name": "",
 	"personality": "tsundere",
@@ -62,13 +64,43 @@ func _ready() -> void:
 	apply_ui_scale()
 
 
+## Ajustes que cada personaje tiene por separado (su nombre, personalidad,
+## apariencia, instrucciones extra y tono de voz). Se guardan en "profiles".
+const PER_CHARACTER := ["companion_name", "personality", "appearance", "custom_prompt", "voice_pitch"]
+## De dónde sale el valor por defecto en Characters.DATA.
+const CHARACTER_DEFAULT_KEYS := {"companion_name": "default_name", "personality": "personality",
+	"appearance": "appearance", "voice_pitch": "voice_pitch"}
+
+
 func get_value(key: String) -> Variant:
+	if key in PER_CHARACTER:
+		var id := str(_values.get("character", DEFAULTS["character"]))
+		var profiles: Dictionary = _values.get("profiles", {}) if typeof(_values.get("profiles")) == TYPE_DICTIONARY else {}
+		var profile: Dictionary = profiles.get(id, {})
+		if profile.has(key):
+			return profile[key]
+		# Aka usaba los ajustes globales antes de que hubiera perfiles.
+		if id == Characters.DEFAULT_ID and _values.has(key):
+			return _values[key]
+		var data := Characters.fetch(id)
+		var data_key: String = CHARACTER_DEFAULT_KEYS.get(key, "")
+		if not data_key.is_empty() and data.has(data_key):
+			return data[data_key]
+		return DEFAULTS.get(key)
 	return _values.get(key, DEFAULTS.get(key))
 
 
 func set_value(key: String, value: Variant) -> void:
 	if not DEFAULTS.has(key):
 		push_warning("Ajuste desconocido: %s" % key)
+		return
+	if key in PER_CHARACTER:
+		var id := str(_values.get("character", DEFAULTS["character"]))
+		var profiles: Dictionary = (_values.get("profiles", {}) as Dictionary).duplicate(true) if typeof(_values.get("profiles")) == TYPE_DICTIONARY else {}
+		var profile: Dictionary = profiles.get(id, {})
+		profile[key] = value
+		profiles[id] = profile
+		_values["profiles"] = profiles
 		return
 	_values[key] = value
 

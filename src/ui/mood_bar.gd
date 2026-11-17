@@ -85,6 +85,11 @@ func set_title(text: String) -> void:
 		_title_label.text = text
 
 
+## Olvida el valor anterior (al cambiar de personaje no hay "+/-").
+func reset_delta() -> void:
+	_last_value = -1.0
+
+
 func refresh() -> void:
 	_value = Mood.affection if kind == Kind.AFFECTION else Mood.anger
 	if _last_value >= 0.0:

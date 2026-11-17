@@ -6,6 +6,27 @@ Proyecto personal de una asistente / amiga con IA. No lo voy a comercializar ni 
 - **IA:** API de Mistral (plan gratuito)
 - **Plataformas:** Android (APK) y Linux ARM64 (consolas tipo Anbernic)
 
+## Versión 3.5 — Mireya, voz y consultas reales
+
+- **Dos compañeras** (botón "Cambiar" del panel lateral): Aka (zorrita,
+  solo amistad) y Mireya (vampira adulta, personaje original). Cada una
+  tiene su propio historial, memoria, ánimo, confianza, nombre,
+  personalidad, apariencia, instrucciones y tono de voz
+  (`Settings.PER_CHARACTER`, datos en `user://characters/<id>/`).
+- **Avatar ilustrado** (`src/avatar/avatar_illustrated.gd`): una sola
+  ilustración sobre una malla deformada por shader (cabeza, moño con
+  inercia, respiración, falda y estola) + cara dibujada encima (párpados,
+  ojos felices, guiño, boca con colmillos, rubor, lágrimas). Las posiciones
+  van en el "rig" de `Characters.DATA["mireya"]`.
+- **Consultas reales**: clima (Open-Meteo), Wikipedia y búsqueda web
+  (Gemini con Google si tu plan lo permite; si no, búsqueda web de Groq;
+  si no, DuckDuckGo). Ver `src/ai/info_lookup.gd`.
+- **Hablarle con la voz**: botón del micrófono; Whisper de Groq o Gemini
+  transcriben (`src/voice/voice_input.gd`). Permiso RECORD_AUDIO.
+- **Más acciones**: eventos en el calendario y mensajes de WhatsApp.
+- **Si falta la clave** del cerebro elegido, la app la pide con un botón
+  para conseguirla.
+
 ## Versión 3.4 — Groq o Gemini, y ella usa el teléfono
 
 - **Cerebro a elegir** (Ajustes → "Cerebro"): Groq (console.groq.com) o

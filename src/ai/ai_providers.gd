@@ -18,6 +18,7 @@ const DATA := {
 		"base_url": "https://api.groq.com/openai/v1",
 		"key_setting": "api_key",
 		"console": "console.groq.com → API Keys",
+		"key_url": "https://console.groq.com/keys",
 		"models": ["openai/gpt-oss-120b", "qwen/qwen3.8-27b", "openai/gpt-oss-20b"],
 		## Único modelo gratuito de Groq que acepta imágenes.
 		"vision": "qwen/qwen3.8-27b",
@@ -29,6 +30,7 @@ const DATA := {
 		"base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
 		"key_setting": "gemini_api_key",
 		"console": "aistudio.google.com/apikey",
+		"key_url": "https://aistudio.google.com/apikey",
 		"models": ["gemini-3.8-flash", "gemini-3.6-flash", "gemini-3.5-flash-lite"],
 		## Todos los Gemini ven imágenes: se usa el mismo modelo.
 		"vision": "",

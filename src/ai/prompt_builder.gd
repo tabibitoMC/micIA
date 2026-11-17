@@ -40,6 +40,7 @@ static func build_system_prompt(context: Dictionary) -> String:
 	if not recent.is_empty():
 		parts.append("LO QUE YA DIJISTE HACE POCO (PROHIBIDO repetir estas frases, sus inicios o sus muletillas, por ejemplo \"no es que...\" si ya aparece aquí; di algo distinto):\n- " + "\n- ".join(PackedStringArray(recent)))
 
+	parts.append(_lookup_instructions())
 	if context.get("phone_actions", false):
 		parts.append(_phone_instructions(str(context.get("now", ""))))
 
@@ -62,6 +63,14 @@ static func _rules() -> String:
 - Puedes mandarle imágenes (dibujos, selfies, cosas que quieras mostrarle) con el campo "imagen". Hazlo solo cuando él te lo pida o cuando de verdad tenga sentido, nunca en cada mensaje. Las imágenes siempre son aptas para todo público (ropa puesta, nada sexual), aunque la conversación sea de adultos."""
 
 
+static func _lookup_instructions() -> String:
+	return """CONSULTAS: no sabes nada de lo que pasa hoy (clima, noticias, precios, resultados, horarios, estrenos...) y NUNCA inventas datos. Si él pregunta algo así, o un dato que no sabes seguro, pon en "consultar" un objeto y la app te traerá la información en un [EVENTO] para que se la cuentes:
+- {"tipo": "clima", "consulta": "ciudad"} (si no sabes su ciudad, pregúntasela primero)
+- {"tipo": "web", "consulta": "qué buscar"} (noticias, actualidad, precios, cualquier cosa reciente)
+- {"tipo": "wikipedia", "consulta": "tema"} (datos de enciclopedia: personas, lugares, historia)
+Mientras, en "texto" dile en personaje que vas a ver (corto). Si no hace falta, "consultar": {}. Cuando llegue un [EVENTO] con el RESULTADO, cuéntaselo en tus palabras y en personaje, incluyendo los datos importantes (cifras, temperaturas, fechas, nombres) y sin inventar nada que no esté ahí; no vuelvas a consultar."""
+
+
 static func _phone_instructions(now: String) -> String:
 	return """TELÉFONO: puedes hacer cosas en su teléfono con el campo "telefono" del JSON. SOLO cuando él te lo PIDA claramente en su último mensaje (nunca por iniciativa propia ni por algo que pidió antes). Hoy es %s.
 Pon en "telefono" un objeto así, y en "texto" contesta en personaje que lo haces (corto):
@@ -74,13 +83,15 @@ Pon en "telefono" un objeto así, y en "texto" contesta en personaje que lo hace
 - {"accion": "alarma", "hora": 7, "minuto": 30, "mensaje": "para qué"} (hora 0-23; "a las 7 de la noche" = 19)
 - {"accion": "temporizador", "segundos": 600, "mensaje": "para qué"} (para "en X minutos", "dentro de media hora")
 - {"accion": "llamar", "numero": "+51..."} (solo abre el marcador; necesitas el número)
+- {"accion": "evento", "titulo": "qué", "dia": "AAAA-MM-DD", "hora": 19, "minuto": 0, "duracion": 60} (cita o recordatorio en su calendario)
+- {"accion": "whatsapp", "numero": "51999888777", "mensaje": "texto"} (deja el mensaje escrito; el número es opcional)
 - {"accion": "camara"} / {"accion": "ajustes"}
 Si no pidió nada de esto, "telefono": {}. Si falta un dato (p. ej. la hora de la alarma), pregúntaselo y deja "telefono": {}.""" % now
 
 
 static func _format_instructions() -> String:
 	return """FORMATO: responde SIEMPRE con un único objeto JSON y nada más:
-{"texto": "...", "emocion": "...", "accion": "...", "enojo": 0, "afecto": 0, "trato": "...", "picante": 0, "acepta_pareja": false, "recordar": "", "imagen": "", "interfaz": "ninguna", "telefono": {}}
+{"texto": "...", "emocion": "...", "accion": "...", "enojo": 0, "afecto": 0, "trato": "...", "picante": 0, "acepta_pareja": false, "recordar": "", "imagen": "", "interfaz": "ninguna", "telefono": {}, "consultar": {}}
 - texto: lo que dices.
 - emocion: una de %s.
 - accion: una de %s (usa "ninguna" la mayoría de las veces y no repitas el gesto de tu respuesta anterior; "golpear" = le das una cachetada y "llorar" solo en reacciones fuertes; "abrazar" y "celebrar" cuando estés muy contenta con él; "cruzar_brazos" cuando estés molesta u orgullosa).
