@@ -36,6 +36,8 @@ var interface_action := "ninguna"
 var spice := 0
 ## Ella acepta ser su pareja en esta respuesta.
 var accepts_partner := false
+## Algo que hace en el teléfono (ver PhoneActions), o {} si nada.
+var phone := {}
 
 
 ## Convierte el texto devuelto por la IA en un AIReply. Devuelve null si no
@@ -61,6 +63,9 @@ static func from_text(raw: String) -> AIReply:
 	reply.interface_action = _pick(data.get("interfaz"), INTERFACE_ACTIONS, "ninguna")
 	reply.spice = _clamp_int(data.get("picante", 0), Vector2i(0, 3))
 	reply.accepts_partner = data.get("acepta_pareja", false) == true
+	var phone_value: Variant = data.get("telefono", {})
+	if typeof(phone_value) == TYPE_DICTIONARY and str(phone_value.get("accion", "")) in PhoneActions.ACTIONS:
+		reply.phone = phone_value
 	var image_value: Variant = data.get("imagen", "")
 	reply.image_prompt = str(image_value).strip_edges() if image_value != null else ""
 	return reply
@@ -79,6 +84,7 @@ func to_json_string() -> String:
 		"recordar": remember,
 		"imagen": image_prompt,
 		"interfaz": interface_action,
+		"telefono": phone,
 		"picante": spice,
 		"acepta_pareja": accepts_partner,
 	})

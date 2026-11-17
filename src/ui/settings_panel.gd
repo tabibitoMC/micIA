@@ -5,8 +5,11 @@ extends PanelContainer
 signal closed
 signal memory_cleared
 
+var _provider: OptionButton
 var _api_key: LineEdit
+var _gemini_key: LineEdit
 var _model: OptionButton
+var _phone_actions: CheckButton
 var _companion_name: LineEdit
 var _user_name: LineEdit
 var _personality: OptionButton
@@ -42,17 +45,33 @@ func _ready() -> void:
 
 	_add_title(form, "Ajustes")
 
-	_add_label(form, "API key de Groq")
+	_add_label(form, "Cerebro (proveedor de IA)")
+	_provider = OptionButton.new()
+	for id in AIProviders.ids():
+		_provider.add_item(AIProviders.fetch(id)["label"])
+	_provider.item_selected.connect(func(_i: int): _fill_models(""))
+	form.add_child(_provider)
+
+	_add_label(form, "API key de Groq (console.groq.com → API Keys)")
 	_api_key = LineEdit.new()
 	_api_key.secret = true
-	_api_key.placeholder_text = "Pega aquí tu clave"
+	_api_key.placeholder_text = "Pega aquí tu clave de Groq"
 	form.add_child(_api_key)
+
+	_add_label(form, "API key de Gemini (aistudio.google.com/apikey)")
+	_gemini_key = LineEdit.new()
+	_gemini_key.secret = true
+	_gemini_key.placeholder_text = "Pega aquí tu clave de Gemini"
+	form.add_child(_gemini_key)
 
 	_add_label(form, "Modelo")
 	_model = OptionButton.new()
-	for model_name in Settings.MODELS:
-		_model.add_item(model_name)
 	form.add_child(_model)
+
+	_phone_actions = CheckButton.new()
+	_phone_actions.text = "Dejar que use el teléfono (abrir YouTube, apps, mapas, poner alarmas y temporizadores)"
+	_phone_actions.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	form.add_child(_phone_actions)
 
 	_add_label(form, "Personaje")
 	_character = OptionButton.new()
@@ -172,8 +191,11 @@ func _ready() -> void:
 func load_values() -> void:
 	_clear_armed = false
 	_clear_button.text = "Borrar memoria y reiniciar ánimo"
+	_provider.select(maxi(0, AIProviders.ids().find(AIProviders.current_id())))
 	_api_key.text = str(Settings.get_value("api_key"))
-	_select_by_text(_model, str(Settings.get_value("model")))
+	_gemini_key.text = str(Settings.get_value("gemini_api_key"))
+	_fill_models(AIProviders.model())
+	_phone_actions.button_pressed = bool(Settings.get_value("phone_actions"))
 	_companion_name.text = str(Settings.get_value("companion_name"))
 	_user_name.text = str(Settings.get_value("user_name"))
 	var ids := Personalities.ids()
@@ -201,8 +223,11 @@ func load_values() -> void:
 
 
 func _on_save_pressed() -> void:
+	Settings.set_value("provider", AIProviders.ids()[_provider.selected])
 	Settings.set_value("api_key", _api_key.text.strip_edges())
+	Settings.set_value("gemini_api_key", _gemini_key.text.strip_edges())
 	Settings.set_value("model", _model.get_item_text(_model.selected))
+	Settings.set_value("phone_actions", _phone_actions.button_pressed)
 	var name_text := _companion_name.text.strip_edges()
 	Settings.set_value("companion_name", name_text if not name_text.is_empty() else "Mia")
 	Settings.set_value("user_name", _user_name.text.strip_edges())
@@ -260,6 +285,15 @@ func _add_title_small(parent: Control, text: String) -> void:
 	label.text = text
 	label.add_theme_font_size_override("font_size", UIStyle.FONT_SIZE)
 	parent.add_child(label)
+
+
+## Llena la lista de modelos del proveedor elegido en el formulario.
+func _fill_models(selected: String) -> void:
+	_model.clear()
+	var provider := AIProviders.fetch(AIProviders.ids()[_provider.selected])
+	for model_name in provider["models"]:
+		_model.add_item(model_name)
+	_select_by_text(_model, selected)
 
 
 func _add_label(parent: Control, text: String) -> void:

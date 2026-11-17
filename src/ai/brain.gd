@@ -83,7 +83,7 @@ func _ask(user_entry: Dictionary, api_content: Variant = null) -> void:
 		failed.emit("Espera, todavía está pensando.")
 		return
 	if not Settings.has_api_key():
-		failed.emit("Falta tu API key de Groq. Ponla en Ajustes.")
+		failed.emit("Falta tu API key de %s. Ponla en Ajustes." % AIProviders.label())
 		return
 
 	_pending_user_entry = user_entry
@@ -94,7 +94,7 @@ func _ask(user_entry: Dictionary, api_content: Variant = null) -> void:
 	_pending_messages = messages
 	_retried = false
 	thinking_changed.emit(true)
-	_client.chat(messages, str(Settings.get_value("api_key")), str(Settings.get_value("model")), true, 0.95)
+	_client.chat(messages, AIProviders.api_key(), AIProviders.model(), true, 0.95)
 
 
 ## Si su respuesta repite una frase que ya dijo hace poco, devuelve esa frase
@@ -164,8 +164,17 @@ func _system_prompt() -> String:
 		"recent_lines": _recent_lines(6),
 		"facts": Memory.facts,
 		"mods_prompt": Mods.extra_prompt(),
+		"phone_actions": bool(Settings.get_value("phone_actions")),
+		"now": _now_text(),
 		"scene": scene_context.call(),
 	})
+
+
+## Fecha y hora reales, para que entienda "mañana a las 7" o "en 10 minutos".
+static func _now_text() -> String:
+	const DAYS := ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"]
+	var t := Time.get_datetime_dict_from_system()
+	return "%s %02d/%02d/%d y son las %02d:%02d" % [DAYS[int(t["weekday"])], t["day"], t["month"], t["year"], t["hour"], t["minute"]]
 
 
 ## La IA a veces confunde "fingir enojo" (tsundere) con enojarse de verdad.
@@ -200,7 +209,7 @@ func _on_completed(content: String) -> void:
 		var retry := _pending_messages.duplicate()
 		retry.append({"role": "assistant", "content": content})
 		retry.append({"role": "user", "content": "[EVENTO] (Mensaje del sistema, no de él.) Tu respuesta repite \"%s\", que ya dijiste hace poco. Responde de nuevo lo mismo pero con palabras totalmente distintas, sin esa frase ni muletillas repetidas. Mismo formato JSON." % repeated})
-		_client.chat(retry, str(Settings.get_value("api_key")), str(Settings.get_value("model")), true, 1.0)
+		_client.chat(retry, AIProviders.api_key(), AIProviders.model(), true, 1.0)
 		return
 	thinking_changed.emit(false)
 

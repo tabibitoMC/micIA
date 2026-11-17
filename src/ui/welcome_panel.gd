@@ -8,6 +8,10 @@ signal finished
 
 var _name: LineEdit
 var _mistral: LineEdit
+var _provider: OptionButton
+var _key_note: Label
+## Claves escritas por proveedor mientras se cambia de uno a otro.
+var _keys := {}
 var _cf_account: LineEdit
 var _cf_token: LineEdit
 var _horde: LineEdit
@@ -39,10 +43,20 @@ func _ready() -> void:
 	_label(form, "¿Cómo te llamas?")
 	_name = _field(form, "Tu nombre", false)
 
-	_label(form, "API key de Groq (obligatoria)")
-	_note(form, "Gratis en console.groq.com → API Keys")
-	_mistral = _field(form, "Pega aquí tu clave de Groq", true)
-	_mistral.text_changed.connect(func(_t: String): _refresh_start())
+	_label(form, "Cerebro (elige uno; los dos son gratis)")
+	_provider = OptionButton.new()
+	for id in AIProviders.ids():
+		_provider.add_item(AIProviders.fetch(id)["label"])
+	form.add_child(_provider)
+	_key_note = Label.new()
+	_key_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_key_note.add_theme_font_size_override("font_size", UIStyle.FONT_SIZE_SMALL)
+	form.add_child(_key_note)
+	_mistral = _field(form, "Pega aquí tu clave", true)
+	_mistral.text_changed.connect(func(t: String):
+		_keys[_provider_id()] = t.strip_edges()
+		_refresh_start())
+	_provider.item_selected.connect(func(_i: int): _on_provider_changed())
 
 	_label(form, "Imágenes con Cloudflare (opcional)")
 	_note(form, "dash.cloudflare.com → AI → Workers AI → Use REST API")
@@ -58,7 +72,7 @@ func _ready() -> void:
 	form.add_child(_status)
 
 	var test := Button.new()
-	test.text = "Comprobar clave de Groq"
+	test.text = "Comprobar clave"
 	UIStyle.style_button(test, UIStyle.ButtonKind.SECONDARY)
 	test.pressed.connect(_test_mistral)
 	form.add_child(test)
@@ -71,10 +85,26 @@ func _ready() -> void:
 	form.add_child(_start)
 
 	_name.text = str(Settings.get_value("user_name"))
-	_mistral.text = str(Settings.get_value("api_key"))
+	for id in AIProviders.ids():
+		_keys[id] = AIProviders.api_key(id)
+	_provider.select(maxi(0, AIProviders.ids().find(AIProviders.current_id())))
+	_on_provider_changed()
 	_cf_account.text = str(Settings.get_value("cloudflare_account_id"))
 	_cf_token.text = str(Settings.get_value("cloudflare_api_token"))
 	_horde.text = str(Settings.get_value("horde_api_key"))
+	_refresh_start()
+
+
+func _provider_id() -> String:
+	return AIProviders.ids()[_provider.selected]
+
+
+func _on_provider_changed() -> void:
+	var provider := AIProviders.fetch(_provider_id())
+	_key_note.text = "API key de %s (obligatoria). Gratis en %s" % [provider["label"], provider["console"]]
+	if _provider_id() == "gemini":
+		_key_note.text += ". Ojo: en el plan gratis Google puede usar los mensajes para mejorar sus modelos."
+	_mistral.text = str(_keys.get(_provider_id(), ""))
 	_refresh_start()
 
 
@@ -89,10 +119,11 @@ func _test_mistral() -> void:
 		_show("Primero pega tu clave.", UIStyle.ERROR_TEXT)
 		return
 	_show("Comprobando...", UIStyle.PLUM_DIM)
-	var response := await _web.get_json("https://api.groq.com/openai/v1/models", PackedStringArray(["Authorization: Bearer " + key]))
+	var url := str(AIProviders.fetch(_provider_id())["base_url"]) + "/models"
+	var response := await _web.get_json(url, PackedStringArray(["Authorization: Bearer " + key]))
 	if response["ok"]:
 		_show("¡La clave funciona!", Color("2a9d4b"))
-	elif response["code"] == 401:
+	elif response["code"] in [400, 401, 403]:
 		_show("La clave no es válida.", UIStyle.ERROR_TEXT)
 	else:
 		_show("No pude comprobarla: " + str(response["error"]), UIStyle.ERROR_TEXT)
@@ -100,7 +131,9 @@ func _test_mistral() -> void:
 
 func _save() -> void:
 	Settings.set_value("user_name", _name.text.strip_edges())
-	Settings.set_value("api_key", _mistral.text.strip_edges())
+	Settings.set_value("provider", _provider_id())
+	for id in _keys:
+		Settings.set_value(AIProviders.fetch(id)["key_setting"], _keys[id])
 	Settings.set_value("cloudflare_account_id", _cf_account.text.strip_edges())
 	Settings.set_value("cloudflare_api_token", _cf_token.text.strip_edges())
 	Settings.set_value("horde_api_key", _horde.text.strip_edges())

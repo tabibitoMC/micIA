@@ -12,7 +12,12 @@ const DEV_CONFIG_PATH := "res://config.json"
 const SECTION := "settings"
 
 const DEFAULTS := {
+	## Proveedor de IA del chat: "groq" o "gemini" (ver AIProviders).
+	"provider": "groq",
 	"api_key": "",
+	"gemini_api_key": "",
+	## Que ella pueda abrir YouTube, poner alarmas, etc. (ver PhoneActions).
+	"phone_actions": true,
 	"model": "openai/gpt-oss-120b",
 	"character": "aka",
 	"companion_name": "Aka",
@@ -90,7 +95,7 @@ func set_outfit(outfit_id: String) -> void:
 
 
 func has_api_key() -> bool:
-	return not str(get_value("api_key")).strip_edges().is_empty()
+	return not AIProviders.api_key().is_empty()
 
 
 ## Nombre con el que ella llama al usuario (o "tú" si no se configuró).

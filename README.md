@@ -6,6 +6,20 @@ Proyecto personal de una asistente / amiga con IA. No lo voy a comercializar ni 
 - **IA:** API de Mistral (plan gratuito)
 - **Plataformas:** Android (APK) y Linux ARM64 (consolas tipo Anbernic)
 
+## Versión 3.4 — Groq o Gemini, y ella usa el teléfono
+
+- **Cerebro a elegir** (Ajustes → "Cerebro"): Groq (console.groq.com) o
+  Gemini (aistudio.google.com/apikey). Los dos tienen plan gratis y usan el
+  formato de OpenAI; ver `src/ai/ai_providers.gd`. En el plan gratis de
+  Gemini, Google puede usar los mensajes para mejorar sus modelos.
+- **Acciones en el teléfono** (Ajustes → "Dejar que use el teléfono"): si se
+  lo pides, abre YouTube o YouTube Music con una búsqueda, busca en Google,
+  abre mapas, páginas y apps (WhatsApp, Spotify...), pone alarmas y
+  temporizadores en el reloj del sistema, abre el marcador, la cámara o los
+  ajustes. La IA solo devuelve el campo `"telefono"` del JSON; lo ejecuta
+  `src/app/phone_actions.gd` con Intents de Android, así que funciona igual
+  con cualquier proveedor. Permisos: `SET_ALARM` y `QUERY_ALL_PACKAGES`.
+
 ## Versión 2.0 — Groq + avatar 2D
 
 - **IA:** Groq (`https://api.groq.com/openai/v1`). Chat con `openai/gpt-oss-120b`; las fotos van a `qwen/qwen3.8-27b`. La clave se pide al abrir la app (console.groq.com → Claves API).

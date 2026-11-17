@@ -12,9 +12,6 @@ signal failed(message: String)
 
 ## Si el modelo elegido está saturado (429), se prueba con estos en orden.
 ## En el plan gratuito los límites son por modelo, así que otro suele responder.
-const FALLBACK_MODELS := ["openai/gpt-oss-120b", "qwen/qwen3.8-27b", "openai/gpt-oss-20b"]
-## Único modelo gratuito de Groq que acepta imágenes.
-const VISION_MODEL := "qwen/qwen3.8-27b"
 
 
 var _api: MistralApi
@@ -44,10 +41,13 @@ func chat(messages: Array, api_key: String, model: String, json_mode := true, te
 	}
 	if json_mode:
 		payload["response_format"] = {"type": "json_object"}
+	var provider := AIProviders.current()
 	# Castiga repetir las mismas palabras (las respuestas se sienten menos
-	# "de plantilla").
-	payload["frequency_penalty"] = 0.6
-	payload["presence_penalty"] = 0.4
+	# "de plantilla"). Gemini no acepta estos parámetros.
+	if provider["penalties"]:
+		payload["frequency_penalty"] = 0.6
+		payload["presence_penalty"] = 0.4
+	payload.merge(provider["extra"])
 
 	_busy = true
 	var response: Dictionary = {}
@@ -62,13 +62,13 @@ func chat(messages: Array, api_key: String, model: String, json_mode := true, te
 			break
 	_busy = false
 	if not response["ok"] and rate_limited:
-		response["error"] = "Groq está limitando tu clave (demasiadas peticiones o cuota agotada). Espera unos minutos; si sigue, crea una clave nueva en console.groq.com."
+		response["error"] = "%s está limitando tu clave (demasiadas peticiones o cuota agotada). Espera unos minutos; si sigue, cambia de proveedor en Ajustes o crea una clave nueva." % AIProviders.label()
 	if not response["ok"]:
 		failed.emit(response["error"])
 		return
 	var content := extract_content(response["data"])
 	if content.is_empty():
-		failed.emit("Groq devolvió una respuesta vacía.")
+		failed.emit("%s devolvió una respuesta vacía." % AIProviders.label())
 		return
 	completed.emit(content)
 
@@ -77,10 +77,11 @@ func chat(messages: Array, api_key: String, model: String, json_mode := true, te
 ## imagen, se omiten los que no tienen visión.
 static func _models_to_try(preferred: String, messages: Array) -> Array:
 	var has_image := JSON.stringify(messages).contains("\"image_url\"")
-	if has_image:
-		return [VISION_MODEL]
+	var provider := AIProviders.current()
+	if has_image and not str(provider["vision"]).is_empty():
+		return [provider["vision"]]
 	var models: Array = [preferred]
-	for m in FALLBACK_MODELS:
+	for m in provider["models"]:
 		if m not in models:
 			models.append(m)
 	return models

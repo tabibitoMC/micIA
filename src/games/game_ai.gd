@@ -44,7 +44,7 @@ Responde SOLO con JSON: {"jugada": "...", "comentario": "...", "emocion": "..."}
 	]
 	var user := "%s\n\nJugadas legales: %s" % [state, ", ".join(PackedStringArray(legal))]
 	_client.chat([{"role": "system", "content": system}, {"role": "user", "content": user}],
-		str(Settings.get_value("api_key")), str(Settings.get_value("model")), true, 0.6)
+		AIProviders.api_key(), AIProviders.model(), true, 0.6)
 
 
 func _on_completed(content: String) -> void:

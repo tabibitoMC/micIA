@@ -567,10 +567,22 @@ func _on_reply(reply: AIReply) -> void:
 	_last_action = reply.action
 	_avatar.play_action(action)
 	_voice.speak(reply.text)
+	if not reply.phone.is_empty() and bool(Settings.get_value("phone_actions")):
+		_do_phone_action(reply.phone)
 	if reply.interface_action != "ninguna":
 		# Primero el gesto, luego se mueve por la pantalla.
 		await get_tree().create_timer(0.8).timeout
 		_interface_actions.perform(reply.interface_action)
+
+
+## Abre YouTube, pone la alarma, etc. Espera un poco para que se lea su
+## respuesta antes de que otra app tape la pantalla.
+func _do_phone_action(data: Dictionary) -> void:
+	var opens_other_app := str(data.get("accion", "")) not in ["alarma", "temporizador"]
+	await get_tree().create_timer(1.6 if opens_other_app else 0.4).timeout
+	var result := PhoneActions.perform(data)
+	if not result.is_empty():
+		_chat.add_message(ChatView.Sender.SYSTEM, result)
 
 
 func _on_brain_failed(message: String) -> void:
