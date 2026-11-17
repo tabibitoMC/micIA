@@ -249,7 +249,12 @@ func _build() -> void:
 func _scale() -> float:
 	var top := float(_v("top", 0.0))
 	var feet := float(_v("feet", _image.get_height()))
-	return size.y * (FEET_RATIO - TOP_RATIO) / maxf(1.0, feet - top)
+	return size.y * (_feet_ratio() - TOP_RATIO) / maxf(1.0, feet - top)
+
+
+## Imagen cortada a medio cuerpo: su borde de abajo va al borde de la pantalla.
+func _feet_ratio() -> float:
+	return 1.0 if _v("cut", false) else FEET_RATIO
 
 
 func _layout() -> void:
@@ -263,7 +268,7 @@ func _place_standing() -> void:
 	var feet := Vector2(float(_v("neck", Vector2.ZERO).x), float(_v("feet", _image.get_height())))
 	var s := _scale() * (1.0 + act_zoom)
 	_local.position = -feet
-	_body.position = Vector2(_x * size.x + act_shake * size.x * 0.02, size.y * FEET_RATIO - act_jump * size.y)
+	_body.position = Vector2(_x * size.x + act_shake * size.x * 0.02, size.y * _feet_ratio() - act_jump * size.y)
 	_body.rotation = _lean + act_lean * 0.08
 	_body.scale = Vector2(s, s)
 

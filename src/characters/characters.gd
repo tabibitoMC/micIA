@@ -157,6 +157,13 @@ static func register_custom(id: String, data: Dictionary) -> void:
 	if data.has("illustration"):
 		entry["illustration"] = folder + "/" + str(data["illustration"])
 		entry["rig"] = rig_from_json(data.get("rig", {}))
+		if data.has("outfits"):
+			var outfits := []
+			for i in data["outfits"].size():
+				var outfit: Dictionary = data["outfits"][i]
+				outfits.append({"id": "original" if i == 0 else "o%d" % i, "label": str(outfit["label"]),
+					"illustration": folder + "/" + str(outfit["illustration"])})
+			entry["outfits"] = outfits
 	elif data.has("model"):
 		entry["model"] = folder + "/" + str(data["model"])
 	else:

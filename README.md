@@ -14,7 +14,7 @@ adulta o no, y su modelo: una imagen de cuerpo entero (PNG/WebP; si el fondo
 es de un color se quita solo; se tocan ojos, boca y barbilla para que la cara
 se anime), una marioneta `.puppet` o un archivo `.micia` (exportado desde
 aquí para compartir). Se guardan en `user://custom_characters/` y salen en
-el botón "Cambiar". Código: `src/ui/character_creator.gd`,
+el botón "Cambiar". También acepta conjuntos extra (misma pose, otra ropa) y sprites cortados a medio cuerpo (encuadre de novela visual). Código: `src/ui/character_creator.gd`,
 `Characters.register_custom()`.
 
 ## Versión 3.5 — Mireya, voz y consultas reales

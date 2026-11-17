@@ -36,8 +36,13 @@ var _mark_box: VBoxContainer
 var _mark_hint: Label
 var _mark_view: TextureRect
 var _dialog: FileDialog
+var _picking_outfit := false
 
 var _image: Image
+## Conjuntos extra: misma pose con otra ropa ({"label", "image"}).
+var _outfits: Array = []
+var _source_size := Vector2i.ZERO
+var _source_rect := Rect2i()
 var _puppet_bytes := PackedByteArray()
 var _marks: Array = []
 var _crop_top := 0
@@ -102,6 +107,12 @@ func _ready() -> void:
 	pick_file.text = "Elegir archivo de personaje (.micia / .puppet)"
 	pick_file.pressed.connect(_pick.bind(["*.micia, *.puppet ; Personajes"]))
 	form.add_child(pick_file)
+	var pick_outfit := Button.new()
+	pick_outfit.text = "Agregar otro conjunto (misma pose, otra ropa)"
+	pick_outfit.pressed.connect(func():
+		_picking_outfit = true
+		_pick(["*.png, *.webp, *.jpg, *.jpeg ; Imágenes"]))
+	form.add_child(pick_outfit)
 	_model_label = Label.new()
 	_model_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_model_label.add_theme_font_size_override("font_size", UIStyle.FONT_SIZE_SMALL)
@@ -206,6 +217,7 @@ func reset() -> void:
 	_image = null
 	_puppet_bytes = PackedByteArray()
 	_marks.clear()
+	_outfits.clear()
 	_mark_box.visible = false
 	_model_label.text = "Sin modelo: usará la ilustración de Mireya."
 	_status.text = ""
@@ -220,6 +232,12 @@ func _pick(filters: Array) -> void:
 
 func _on_file_selected(path: String) -> void:
 	var lower := path.to_lower()
+	if _picking_outfit:
+		_picking_outfit = false
+		var outfit := ImageUtils.load_any(path)
+		if outfit:
+			add_outfit(outfit, path.get_file().get_basename().capitalize())
+		return
 	if lower.ends_with(".micia"):
 		_import_micia(path)
 	elif lower.ends_with(".puppet"):
@@ -238,15 +256,15 @@ func _on_file_selected(path: String) -> void:
 
 ## Prepara la imagen: tamaño razonable, fondo transparente y recorte.
 func _set_image(image: Image) -> void:
-	image.convert(Image.FORMAT_RGBA8)
-	if image.get_height() > 3072:
-		image.resize(int(image.get_width() * 3072.0 / image.get_height()), 3072, Image.INTERPOLATE_LANCZOS)
-	if not image.detect_alpha():
-		_remove_flat_background(image)
+	_source_size = image.get_size()
+	image = _prepare(image)
 	var used := image.get_used_rect()
+	_source_rect = Rect2i(Vector2i.ZERO, image.get_size())
 	if used.size.x > 0 and used.size.y > 0:
-		image = image.get_region(used.grow(8).intersection(Rect2i(Vector2i.ZERO, image.get_size())))
+		_source_rect = used.grow(8).intersection(Rect2i(Vector2i.ZERO, image.get_size()))
+		image = image.get_region(_source_rect)
 	_image = image
+	_outfits.clear()
 	_puppet_bytes = PackedByteArray()
 	_marks.clear()
 	_crop_top = 0
@@ -257,6 +275,26 @@ func _set_image(image: Image) -> void:
 	_mark_view.texture = atlas
 	_mark_box.visible = true
 	_update_mark_hint()
+
+
+## Tamaño razonable y fondo transparente.
+static func _prepare(image: Image) -> Image:
+	image.convert(Image.FORMAT_RGBA8)
+	if image.get_height() > 3072:
+		image.resize(int(image.get_width() * 3072.0 / image.get_height()), 3072, Image.INTERPOLATE_LANCZOS)
+	if not image.detect_alpha():
+		_remove_flat_background(image)
+	return image
+
+
+## Otro conjunto: la MISMA pose con otra ropa (mismo tamaño de imagen).
+func add_outfit(image: Image, label: String) -> bool:
+	if _image == null or image.get_size() != _source_size:
+		_show("El conjunto debe ser la misma imagen (mismo tamaño y pose) con otra ropa.", true)
+		return false
+	_outfits.append({"label": label, "image": _prepare(image).get_region(_source_rect)})
+	_model_label.text += "\n+ conjunto: " + label
+	return true
 
 
 ## Fondo de un solo color (el de las esquinas) -> transparente.
@@ -313,7 +351,20 @@ func _build_rig() -> Dictionary:
 	var top := float(used.position.y)
 	var feet := float(used.end.y)
 	var w := float(_image.get_width())
+	# ¿Cortada abajo (medio cuerpo)? Entonces los pies "virtuales" van más
+	# abajo, para que no salga gigante: un cuerpo mide unas 7 cabezas.
+	var cut := false
+	for x in range(0, _image.get_width(), 4):
+		if _image.get_pixel(x, _image.get_height() - 1).a > 0.5:
+			cut = true
+			break
+	# Cortada abajo: se encuadra como en las novelas visuales (la imagen
+	# llega hasta el borde de la pantalla y el corte no se ve).
+	if cut:
+		feet = float(_image.get_height())
 	var rig := {"top": top, "feet": feet, "fur_box": Vector4(w * 4.0, feet * 4.0, w * 4.0, feet * 4.0)}
+	if cut:
+		rig["cut"] = true
 	if _marks.size() < 4:
 		var neck_y := top + (feet - top) * 0.2
 		rig.merge({"neck": Vector2(w * 0.5, neck_y), "face": Vector2(w * 0.5, neck_y - (feet - top) * 0.07),
@@ -387,6 +438,13 @@ func _save() -> void:
 		_image.save_webp(dir + "/image.webp", false, 0.92)
 		data["illustration"] = "image.webp"
 		data["rig"] = Characters.rig_to_json(_build_rig())
+		var outfits := [{"label": "Original", "illustration": "image.webp"}]
+		for i in _outfits.size():
+			var file := "outfit_%d.webp" % (i + 1)
+			(_outfits[i]["image"] as Image).save_webp(dir + "/" + file, false, 0.92)
+			outfits.append({"label": _outfits[i]["label"], "illustration": file})
+		if outfits.size() > 1:
+			data["outfits"] = outfits
 	elif not _puppet_bytes.is_empty():
 		var file := FileAccess.open(dir + "/model.puppet", FileAccess.WRITE)
 		file.store_buffer(_puppet_bytes)
@@ -424,6 +482,11 @@ func _import_micia(path: String) -> void:
 			if rig.has("eyes"):
 				_marks = [rig["eyes"][0], rig["eyes"][1], rig["mouth"], rig["neck"]]
 				_update_mark_hint()
+			# Los conjuntos ya vienen recortados igual que la imagen.
+			for outfit in data.get("outfits_webp_base64", []):
+				var extra := Image.new()
+				if extra.load_webp_from_buffer(Marshalls.base64_to_raw(str(outfit["data"]))) == OK:
+					_outfits.append({"label": str(outfit["label"]), "image": extra})
 	_model_label.text = "Personaje importado: %s" % path.get_file()
 
 
@@ -438,7 +501,15 @@ func _export_current() -> void:
 	if data.has("illustration"):
 		data["image_webp_base64"] = Marshalls.raw_to_base64(FileAccess.get_file_as_bytes(dir + "/" + str(data["illustration"])))
 		data.erase("illustration")
+	var packed := []
+	for outfit in data.get("outfits", []).slice(1):
+		packed.append({"label": outfit["label"], "data": Marshalls.raw_to_base64(FileAccess.get_file_as_bytes(dir + "/" + str(outfit["illustration"])))})
+	data.erase("outfits")
+	if not packed.is_empty():
+		data["outfits_webp_base64"] = packed
 	var folder := OS.get_system_dir(OS.SYSTEM_DIR_DOWNLOADS)
+	if folder.is_empty():
+		folder = "user://"
 	var path := folder.path_join("%s.micia" % str(data.get("name", "personaje")).to_lower().replace(" ", "_"))
 	var file := FileAccess.open(path, FileAccess.WRITE)
 	if file == null:

@@ -452,7 +452,7 @@ var _avatar_quality := true
 func _rebuild_avatar() -> void:
 	var want_3d := true
 	var outfit := Settings.current_outfit()
-	var illustration := str(Settings.character().get("illustration", ""))
+	var illustration := str(outfit.get("illustration", Settings.character().get("illustration", "")))
 	var model_path := illustration if not illustration.is_empty() else str(outfit.get("model", Settings.character().get("model", "")))
 	var quality := bool(Settings.get_value("avatar_high_quality"))
 	if _avatar != null and want_3d == _avatar_is_3d and (not want_3d or model_path == _avatar_model_path) and quality == _avatar_quality:
@@ -466,7 +466,8 @@ func _rebuild_avatar() -> void:
 
 	if not illustration.is_empty():
 		var drawn := AvatarIllustrated.new()
-		drawn.character = Settings.character()
+		drawn.character = Settings.character().duplicate()
+		drawn.character["illustration"] = illustration
 		drawn.room = _room
 		drawn.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		_avatar_layer.add_child(drawn)
