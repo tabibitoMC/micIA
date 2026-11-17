@@ -39,6 +39,11 @@ uniform float bend_soft = 120.0;
 // Hombro blando: cerca del pivote el giro se reparte poco a poco, así la
 // manga sigue pegada al cuerpo en vez de despegarse como una pieza aparte.
 uniform float bend_shoulder = 0.0;
+// Tela que cuelga (mangas anchas): por debajo de la muñeca vuelve a caer
+// hacia abajo por gravedad en vez de levantarse con el antebrazo.
+uniform vec2 bend_wrist = vec2(0.0);
+uniform float bend_hang = 0.0;
+uniform float bend_hang_length = 600.0;
 // Balanceo tipo cadena (pelo, falda, lazo): las puntas se mueven más que la
 // raíz. sway = desplazamiento de la punta, en píxeles de la capa.
 uniform bool sway_on = false;
@@ -64,7 +69,13 @@ void vertex() {
 		float fore = smoothstep(len - bend_soft, len + bend_soft, along);
 		float upper = bend_shoulder > 0.0 ? smoothstep(-bend_shoulder * 0.3, bend_shoulder, along) : 1.0;
 		vec2 p = rotate_around(original, bend_elbow, bend_fore * fore);
-		VERTEX.xy = rotate_around(p, bend_pivot, bend_upper * upper);
+		p = rotate_around(p, bend_pivot, bend_upper * upper);
+		if (bend_hang > 0.0) {
+			vec2 wrist = rotate_around(rotate_around(bend_wrist, bend_elbow, bend_fore), bend_pivot, bend_upper);
+			float hang = smoothstep(bend_wrist.y - 60.0, bend_wrist.y + bend_hang_length, original.y) * fore;
+			p = rotate_around(p, wrist, -(bend_upper + bend_fore) * hang * bend_hang);
+		}
+		VERTEX.xy = p;
 	}
 	if (sway_on) {
 		float f = clamp((original.y - sway_root) / max(sway_length, 1.0), 0.0, 1.0);
@@ -518,7 +529,7 @@ func set_node_offset(node_name: String, translation := Vector2.ZERO, rotation :=
 ## parte de más allá de `elbow` gira además alrededor del codo. Se hace en la
 ## GPU, después de las deformaciones del modelo. Devuelve dónde queda un
 ## punto de la capa (p. ej. la muñeca) y cuánto giró, para mover la mano.
-func set_node_bend(node_name: String, pivot_px: Vector2, elbow_px: Vector2, upper: float, fore: float, soft := 120.0, shoulder := 0.0) -> void:
+func set_node_bend(node_name: String, pivot_px: Vector2, elbow_px: Vector2, upper: float, fore: float, soft := 120.0, shoulder := 0.0, wrist_px := Vector2.ZERO, hang := 0.0) -> void:
 	var index: int = _node_index.get(node_name, -1)
 	if index < 0 or _nodes[index].material == null:
 		return
@@ -532,6 +543,8 @@ func set_node_bend(node_name: String, pivot_px: Vector2, elbow_px: Vector2, uppe
 			material.set_shader_parameter("bend_fore", fore)
 			material.set_shader_parameter("bend_soft", soft)
 			material.set_shader_parameter("bend_shoulder", shoulder)
+			material.set_shader_parameter("bend_wrist", wrist_px)
+			material.set_shader_parameter("bend_hang", hang)
 
 
 ## El material de la capa y los de sus copias de máscara (deben deformarse
