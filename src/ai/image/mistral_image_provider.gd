@@ -15,7 +15,8 @@ func display_name() -> String:
 
 
 func is_configured() -> bool:
-	return Settings.has_api_key()
+	# Groq no genera imágenes: este proveedor queda apagado.
+	return false
 
 
 func generate(web: WebRequest, prompt: String) -> Dictionary:
